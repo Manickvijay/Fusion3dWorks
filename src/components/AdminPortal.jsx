@@ -222,24 +222,27 @@ export default function AdminPortal({
   return (
     <div className="fixed inset-0 z-50 bg-[#f1f3f6] flex flex-col overflow-hidden animate-in fade-in duration-200">
       {/* Top Admin Header */}
-      <header className="bg-[#2874f0] text-white px-6 py-3 flex items-center justify-between shadow-md">
+      <header className="bg-[#0d4243] text-white px-6 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-black tracking-tight italic">Flipkart</span>
-            <span className="bg-yellow-400 text-slate-900 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded shadow-xs">
+            <div className="w-7 h-7 rounded-lg bg-[#22c55e] flex items-center justify-center text-white">
+              <ShoppingBag className="w-4 h-4 fill-white" />
+            </div>
+            <span className="text-xl font-black tracking-tight text-white">Gromuse</span>
+            <span className="bg-[#86efac] text-emerald-950 text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded shadow-xs">
               Seller &amp; Admin Hub
             </span>
           </div>
-          <span className="text-blue-200 text-xs hidden md:inline">|</span>
-          <span className="text-xs text-blue-100 hidden md:inline font-medium">
-            Management Portal (Products, Orders &amp; Users)
+          <span className="text-emerald-300 text-xs hidden md:inline">|</span>
+          <span className="text-xs text-emerald-100 hidden md:inline font-medium">
+            Management Portal (Grocery Products, Orders &amp; Users)
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-bold">{currentUser?.name || 'Administrator'}</div>
-            <div className="text-[10px] text-yellow-300 font-semibold uppercase tracking-wider">
+            <div className="text-[10px] text-[#86efac] font-semibold uppercase tracking-wider">
               {currentUser?.role === 'admin' ? 'Master Admin' : 'Admin Mode'}
             </div>
           </div>
@@ -247,10 +250,10 @@ export default function AdminPortal({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white text-[#2874f0] hover:bg-yellow-400 hover:text-slate-900 transition-colors text-xs font-bold shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#22c55e] hover:bg-[#16a34a] text-white transition-colors text-xs font-bold shadow-xs cursor-pointer"
           >
             <Eye className="w-4 h-4" />
-            <span>View Flipkart Store</span>
+            <span>View Gromuse Store</span>
           </button>
         </div>
       </header>

@@ -1,6 +1,6 @@
 {
   "name": "Fusion3D Works",
-  "description": "An e-commerce marketplace and custom 3D printing platform combining Flipkart and Amazon shopping experiences with interactive 3D model visualization, instant print quote calculation, and order tracking.",
+  "description": "Premium 3D Printing E-Commerce Platform selling 3D Printers, Filaments, Resins, Spare Parts, Accessories, and Custom 3D Printing Services with complete customer storefront and comprehensive admin management portal.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

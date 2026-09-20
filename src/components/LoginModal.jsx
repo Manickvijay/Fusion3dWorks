@@ -87,57 +87,57 @@ export default function LoginModal({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Left Blue Flipkart Column */}
-        <div className="w-full md:w-2/5 bg-[#2874f0] text-white p-7 flex flex-col justify-between relative overflow-hidden">
+        {/* Left Teal Gromuse Column */}
+        <div className="w-full md:w-2/5 bg-[#0d4243] text-white p-7 flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-3 relative z-10">
             <h2 className="text-2xl font-bold tracking-tight">
               {isSignUp ? "Looks like you're new here!" : 'Login'}
             </h2>
-            <p className="text-blue-100 text-sm leading-relaxed">
+            <p className="text-emerald-100 text-sm leading-relaxed">
               {isSignUp
-                ? 'Sign up with your mobile number to get started with India’s biggest online store.'
-                : 'Get access to your Orders, Wishlist, Custom 3D Slicing, and Personalized Recommendations.'}
+                ? 'Sign up with your mobile number to get started with Gromuse express grocery delivery.'
+                : 'Get access to your Orders, Wishlist, Express 15-min delivery and organic groceries.'}
             </p>
           </div>
 
-          {/* Flipkart Visual Decorative Graphic */}
+          {/* Gromuse Visual Decorative Graphic */}
           <div className="py-6 flex flex-col items-center justify-center relative z-10">
-            <div className="w-24 h-24 rounded-full bg-blue-500/40 border border-blue-300/30 flex items-center justify-center mb-2 shadow-inner">
-              <ShieldCheck className="w-12 h-12 text-yellow-300" />
+            <div className="w-24 h-24 rounded-full bg-emerald-500/30 border border-emerald-300/30 flex items-center justify-center mb-2 shadow-inner">
+              <ShieldCheck className="w-12 h-12 text-[#86efac]" />
             </div>
-            <div className="text-[11px] text-blue-100 font-medium tracking-wide text-center">
-              100% Secure &amp; Authentic Flipkart Platform
+            <div className="text-[11px] text-emerald-100 font-medium tracking-wide text-center">
+              100% Secure &amp; Authentic Gromuse Platform
             </div>
           </div>
 
           {/* Quick Demo Logins Pill */}
-          <div className="pt-2 border-t border-blue-400/30 text-xs text-blue-100 relative z-10">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-yellow-300 block mb-1.5">
+          <div className="pt-2 border-t border-emerald-400/30 text-xs text-emerald-100 relative z-10">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#86efac] block mb-1.5">
               1-Click Demo Logins:
             </span>
             <div className="flex flex-col gap-1.5">
               <button
                 type="button"
                 onClick={handleQuickCustomer}
-                className="w-full py-1.5 px-2.5 rounded bg-white/15 hover:bg-white/25 text-white text-xs font-semibold text-left flex items-center justify-between transition-colors"
+                className="w-full py-1.5 px-2.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold text-left flex items-center justify-between transition-colors cursor-pointer"
               >
                 <span>⚡ Customer (Manick)</span>
-                <ArrowRight className="w-3 h-3 text-yellow-300" />
+                <ArrowRight className="w-3 h-3 text-[#86efac]" />
               </button>
               <button
                 type="button"
                 onClick={handleQuickAdmin}
-                className="w-full py-1.5 px-2.5 rounded bg-yellow-400 hover:bg-yellow-300 text-slate-900 text-xs font-bold text-left flex items-center justify-between transition-colors shadow-xs"
+                className="w-full py-1.5 px-2.5 rounded-lg bg-[#22c55e] hover:bg-[#16a34a] text-white text-xs font-bold text-left flex items-center justify-between transition-colors shadow-xs cursor-pointer"
               >
                 <span>🛡️ Admin Portal (Full Access)</span>
-                <ArrowRight className="w-3 h-3 text-slate-900" />
+                <ArrowRight className="w-3 h-3 text-white" />
               </button>
             </div>
           </div>
 
           {/* Background circles */}
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-blue-600/50 pointer-events-none" />
-          <div className="absolute top-10 -right-10 w-32 h-32 rounded-full bg-blue-400/20 pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-emerald-600/30 pointer-events-none" />
+          <div className="absolute top-10 -right-10 w-32 h-32 rounded-full bg-teal-400/20 pointer-events-none" />
         </div>
 
         {/* Right Form Column */}
@@ -161,7 +161,7 @@ export default function LoginModal({
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full pl-9 pr-3 py-2 text-sm border-b-2 border-gray-200 focus:border-[#2874f0] outline-none transition-colors"
+                    className="w-full pl-9 pr-3 py-2 text-sm border-b-2 border-gray-200 focus:border-[#0d4243] outline-none transition-colors"
                     required
                   />
                 </div>
@@ -179,7 +179,7 @@ export default function LoginModal({
                   value={emailOrPhone}
                   onChange={(e) => setEmailOrPhone(e.target.value)}
                   placeholder="Enter Email or 10-digit mobile number"
-                  className="w-full pl-9 pr-3 py-2 text-sm border-b-2 border-gray-200 focus:border-[#2874f0] outline-none transition-colors"
+                  className="w-full pl-9 pr-3 py-2 text-sm border-b-2 border-gray-200 focus:border-[#0d4243] outline-none transition-colors"
                   required
                 />
               </div>
@@ -191,7 +191,7 @@ export default function LoginModal({
                   <label className="text-xs font-semibold text-gray-600">
                     Enter OTP sent to your number
                   </label>
-                  <span className="text-[11px] text-[#2874f0] font-medium cursor-pointer">
+                  <span className="text-[11px] text-emerald-700 font-medium cursor-pointer">
                     Resend in 24s
                   </span>
                 </div>
@@ -230,14 +230,14 @@ export default function LoginModal({
             )}
 
             <p className="text-[11px] text-gray-500 leading-normal pt-1">
-              By continuing, you agree to Flipkart's{' '}
-              <span className="text-[#2874f0] cursor-pointer hover:underline">Terms of Use</span> and{' '}
-              <span className="text-[#2874f0] cursor-pointer hover:underline">Privacy Policy</span>.
+              By continuing, you agree to Gromuse's{' '}
+              <span className="text-emerald-700 cursor-pointer hover:underline">Terms of Use</span> and{' '}
+              <span className="text-emerald-700 cursor-pointer hover:underline">Privacy Policy</span>.
             </p>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xs bg-[#fb641b] hover:bg-[#e85a15] text-white text-sm font-bold shadow-md shadow-orange-100 transition-all active:scale-98"
+              className="w-full py-3 rounded-xl bg-[#0d4243] hover:bg-[#115e59] text-white text-sm font-bold shadow-md transition-all active:scale-98 cursor-pointer"
             >
               {isOtpMode ? 'Verify & Continue' : (isSignUp ? 'CONTINUE' : 'Request OTP / Login')}
             </button>
@@ -246,7 +246,7 @@ export default function LoginModal({
               <button
                 type="button"
                 onClick={() => setIsOtpMode(true)}
-                className="w-full py-2.5 rounded-xs border border-gray-300 text-[#2874f0] text-xs font-bold hover:bg-gray-50 transition-colors"
+                className="w-full py-2.5 rounded-xl border border-gray-300 text-emerald-800 text-xs font-bold hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Login with Instant OTP
               </button>
@@ -262,7 +262,7 @@ export default function LoginModal({
                   setIsSignUp(false);
                   setIsOtpMode(false);
                 }}
-                className="text-xs font-bold text-[#2874f0] hover:underline"
+                className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
               >
                 Existing User? Log in
               </button>
@@ -273,9 +273,9 @@ export default function LoginModal({
                   setIsSignUp(true);
                   setIsOtpMode(false);
                 }}
-                className="text-xs font-bold text-[#2874f0] hover:underline"
+                className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
               >
-                New to Flipkart? Create an account
+                New to Gromuse? Create an account
               </button>
             )}
           </div>
