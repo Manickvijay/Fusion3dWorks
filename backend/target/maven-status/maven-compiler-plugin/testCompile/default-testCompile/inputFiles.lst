@@ -1,0 +1,6 @@
+/app/applet/backend/src/test/java/com/fusion3d/controller/PrinterControllerTest.java
+/app/applet/backend/src/test/java/com/fusion3d/Fusion3dApplicationTests.java
+/app/applet/backend/src/test/java/com/fusion3d/controller/ProductControllerTest.java
+/app/applet/backend/src/test/java/com/fusion3d/controller/OrderControllerTest.java
+/app/applet/backend/src/test/java/com/fusion3d/service/S3StorageServiceTest.java
+/app/applet/backend/src/test/java/com/fusion3d/controller/AuthControllerTest.java

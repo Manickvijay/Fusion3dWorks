@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.fusion3d.controller.ProductControllerTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.137 s -- in com.fusion3d.controller.ProductControllerTest

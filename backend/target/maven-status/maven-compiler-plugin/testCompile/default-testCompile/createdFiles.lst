@@ -1,0 +1,6 @@
+com/fusion3d/controller/PrinterControllerTest.class
+com/fusion3d/service/S3StorageServiceTest.class
+com/fusion3d/controller/ProductControllerTest.class
+com/fusion3d/Fusion3dApplicationTests.class
+com/fusion3d/controller/OrderControllerTest.class
+com/fusion3d/controller/AuthControllerTest.class
