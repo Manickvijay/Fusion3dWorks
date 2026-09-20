@@ -2,44 +2,27 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { ShopProvider } from './context/ShopContext';
 
-// Common global customer UI components
-import AnnouncementBar from './components/common/AnnouncementBar';
+// Common UI Components
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import CartDrawer from './components/common/CartDrawer';
+import LoginModal from './components/common/LoginModal';
 import QuickViewModal from './components/common/QuickViewModal';
+import FlyingCartItem from './components/common/FlyingCartItem';
 import ToastContainer from './components/common/ToastContainer';
 
-// Customer storefront pages
+// Pages
 import HomePage from './pages/HomePage';
-import ShopPage from './pages/ShopPage';
-import CategoryPage from './pages/CategoryPage';
 import ProductDetailPage from './pages/ProductDetailPage';
-import CartPage from './pages/CartPage';
+import CategoryPage from './pages/CategoryPage';
+import CustomPrintPage from './pages/CustomPrintPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
+import ProfilePage from './pages/ProfilePage';
 import CheckoutPage from './pages/CheckoutPage';
-import ComparePage from './pages/ComparePage';
 import WishlistPage from './pages/WishlistPage';
-import SearchResultsPage from './pages/SearchResultsPage';
-import OffersPage from './pages/OffersPage';
-import CustomQuotePage from './pages/CustomQuotePage';
-import AccountPage from './pages/AccountPage';
-import TrackOrderPage from './pages/TrackOrderPage';
-import InvoicePage from './pages/InvoicePage';
-import SupportPage from './pages/SupportPage';
-import PolicyPage from './pages/PolicyPage';
+import AdminPage from './pages/AdminPage';
 
-// Admin Portal Components
-import AdminLayout from './components/admin/AdminLayout';
-import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-import AdminProductsPage from './pages/admin/AdminProductsPage';
-import AdminInventoryPage from './pages/admin/AdminInventoryPage';
-import AdminOrdersPage from './pages/admin/AdminOrdersPage';
-import AdminCouponsPage from './pages/admin/AdminCouponsPage';
-import AdminUsersPage from './pages/admin/AdminUsersPage';
-import AdminReviewsPage from './pages/admin/AdminReviewsPage';
-import AdminSettingsPage from './pages/admin/AdminSettingsPage';
-
-// Smooth scroll to top on route change
+// Auto scroll to top on route change
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -48,20 +31,21 @@ function ScrollToTop() {
   return null;
 }
 
-// Layout wrapper for customer storefront
-function CustomerLayout() {
+// Global Main Layout
+function AppLayout() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-indigo-600 selection:text-white antialiased">
-      <AnnouncementBar />
+    <div className="min-h-screen flex flex-col bg-slate-50/50 text-slate-900 font-sans selection:bg-indigo-600 selection:text-white antialiased">
       <Navbar />
       <main className="flex-1">
         <Outlet />
       </main>
       <Footer />
-      
-      {/* Global interactive drawers & modals */}
+
+      {/* Global Interactive Overlays */}
       <CartDrawer />
+      <LoginModal />
       <QuickViewModal />
+      <FlyingCartItem />
       <ToastContainer />
     </div>
   );
@@ -73,42 +57,23 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
-          
-          {/* Customer Storefront Routes */}
-          <Route element={<CustomerLayout />}>
+          <Route element={<AppLayout />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/shop" element={<ShopPage />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/product" element={<Navigate to="/" replace />} />
             <Route path="/category/:categoryId" element={<CategoryPage />} />
-            <Route path="/product/:productId" element={<ProductDetailPage />} />
-            <Route path="/cart" element={<CartPage />} />
+            <Route path="/search" element={<CategoryPage />} />
+            <Route path="/custom-print" element={<CustomPrintPage />} />
+            <Route path="/track-order" element={<OrderTrackingPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/account" element={<ProfilePage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/compare" element={<ComparePage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
-            <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/offers" element={<OffersPage />} />
-            <Route path="/custom-quote" element={<CustomQuotePage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/track-order" element={<TrackOrderPage />} />
-            <Route path="/invoice/:orderId" element={<InvoicePage />} />
-            <Route path="/support" element={<SupportPage />} />
-            <Route path="/policies" element={<PolicyPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
-
-          {/* Enterprise Admin Portal Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboardPage />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="inventory" element={<AdminInventoryPage />} />
-            <Route path="orders" element={<AdminOrdersPage />} />
-            <Route path="coupons" element={<AdminCouponsPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="reviews" element={<AdminReviewsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
-
-          {/* Catch-all fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-
         </Routes>
       </BrowserRouter>
     </ShopProvider>

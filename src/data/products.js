@@ -1,611 +1,516 @@
-export const PRODUCTS = [
-  // --- 3D PRINTERS ---
+// Catalog of 3D Printed Custom Products: Keychains, Cake Toppers, Name Boards, Gifts, Lamps, Sculptures
+export const INITIAL_PRODUCTS = [
   {
-    id: 'prod-printer-apex',
-    title: 'Fusion3D Apex Pro CoreXY High-Speed 3D Printer (600mm/s)',
-    brand: 'Fusion3D Apex',
-    category: '3d-printers',
-    categoryLabel: '3D Printers',
-    price: 749.00,
-    originalPrice: 999.00,
-    discount: '25% off',
+    id: 'prod-keychain-dual',
+    name: 'Personalized Dual-Color 3D Name Keychain',
+    category: '3d-keychain',
+    categoryLabel: '3D Keychains',
+    price: 12.99,
+    originalPrice: 16.99,
     rating: 4.9,
-    reviewCount: 428,
-    stock: 35,
-    inStock: true,
-    isFeatured: true,
-    isBestSeller: true,
-    sku: 'F3D-PRT-APX-01',
-    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80',
+    reviewsCount: 148,
+    printTime: '45m',
+    printTimeMinutes: 45,
+    badge: 'Best Seller',
+    dimensions: '75 x 28 x 6 mm',
+    material: 'PLA+ Silk PolyTerra',
+    layerHeight: '0.16mm Fine Detail',
+    weight: '18g',
+    description: 'Custom extruded 3D typography keychain featuring crisp dual-layer color contrast. Engineered with reinforced split-ring loop that withstands everyday pocket use without snapping.',
+    image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
     gallery: [
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Flagship CoreXY',
-    technology: 'CoreXY FDM',
-    buildVolume: '256 x 256 x 256 mm',
-    printSpeed: 'Up to 600 mm/s',
-    acceleration: '20,000 mm/s²',
-    nozzleMaxTemp: '300°C All-Metal',
-    bedMaxTemp: '120°C Aluminum Heated Bed',
-    supportedMaterials: ['PLA', 'PETG', 'TPU', 'ABS', 'ASA', 'PA-CF', 'PET-CF'],
-    description: 'The Apex Pro sets a new benchmark for desktop FDM performance. Powered by Klipper architecture with active input shaping and automated vibration compensation, it prints functional engineering prototypes in a fraction of standard print times without ringing or surface artifacts.',
-    highlights: [
-      'Integrated AI LiDAR dual-check sensor for 100% first-layer perfection',
-      'Enclosed chamber with activated carbon HEPA air filtration',
-      'Hardened steel dual-gear direct drive extruder handles abrasive carbon fiber',
-      '4.3-inch responsive IPS touchscreen with dual-band Wi-Fi & remote cloud monitoring'
-    ],
-    variants: [
-      { name: 'Standard Unit', price: 749.00, sku: 'F3D-APX-STD' },
-      { name: 'Combo + 4-Color AMS Unit', price: 949.00, sku: 'F3D-APX-AMS' },
-      { name: 'Engineer Bundle (Includes Hardened Steel 0.6mm + 3kg PA-CF)', price: 1049.00, sku: 'F3D-APX-ENG' }
-    ],
-    specs: {
-      'Printing Technology': 'CoreXY Direct Drive FDM',
-      'Build Volume': '256 × 256 × 256 mm³',
-      'Max Toolhead Speed': '600 mm/s',
-      'Max Acceleration': '20,000 mm/s²',
-      'Max Hotend Temp': '300 °C (Ceramic All-Metal)',
-      'Chamber Type': 'Fully Enclosed with Air Purifier',
-      'Bed Leveling': 'Full-Auto Dual Redundant Sensor Matrix',
-      'Filament Runout': 'Optical Sensor with Auto-Tangle Pause',
-      'Connectivity': 'Wi-Fi 6, Ethernet, USB 3.0'
-    },
-    whatInBox: [
-      'Fusion3D Apex Pro 3D Printer (Pre-assembled 95%)',
-      'Double-Sided Textured PEI Spring Steel Plate',
-      'Hardened Steel 0.4mm Nozzle (Pre-installed)',
-      '1.0kg High-Speed PLA+ Test Spool',
-      'Hex wrench set, needle cleaner, grease lubricant & scraper',
-      'AC Power Cord & Quick Start Guide'
-    ],
-    warranty: '2-Year Fusion3D Factory Limited Warranty with 24/7 Priority Support',
-    shippingInfo: 'Free Express Courier Shipping. Ships in heavy-duty foam crate.',
-    reviews: [
-      { user: 'Marcus Vance', rating: 5, date: '14 Sep 2026', comment: 'Blowing away every printer I have ever owned. 18-minute 3DBenchy with zero stringing and mirror-smooth walls.' },
-      { user: 'Elena Rostova', rating: 5, date: '02 Sep 2026', comment: 'The AI camera caught a failed spaghetti print immediately and sent an alert to my phone. Brilliant engineering.' }
-    ]
-  },
-  {
-    id: 'prod-printer-saturn-resin',
-    title: 'Saturn 4 Ultra 12K Precision Mono SLA Resin 3D Printer',
-    brand: 'Elegoo',
-    category: '3d-printers',
-    categoryLabel: '3D Printers',
-    price: 499.00,
-    originalPrice: 629.00,
-    discount: '20% off',
-    rating: 4.8,
-    reviewCount: 312,
-    stock: 22,
-    inStock: true,
-    isFeatured: true,
-    sku: 'ELG-ST4-12K',
-    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
-    gallery: [
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
       'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80'
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=800&auto=format&fit=crop&q=80'
     ],
-    badge: '12K Sub-Micron Detail',
-    technology: 'SLA / MSLA Resin',
-    buildVolume: '218.88 x 122.88 x 220 mm',
-    printSpeed: 'Up to 150 mm/h with Tilt-Release',
-    description: 'Equipped with a 10-inch 12K monochrome LCD providing an astonishing 19x24 micron XY resolution. The revolutionary tilting vat technology detaches cured layers in a fraction of a second, drastically speeding up miniature, dental, and jewelry production.',
-    highlights: [
-      '12K Mono LCD (11520 x 5120) with 9H tempered screen protector',
-      'Tilt-release technology reduces peel force by 80%',
-      'Auto-leveling mechanical sensor with zero manual bed tramming required',
-      'Integrated AI monitoring camera and resin vat residue sensor'
+    modelType: 'keychain',
+    allowCustomText: true,
+    customTextPlaceholder: 'e.g. EMILY, DAVID, or MAKER',
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'top_text',
+        name: 'Top Lettering / Text Color',
+        defaultColor: '#F59E0B',
+        options: [
+          { name: 'Silk Gold', hex: '#F59E0B' },
+          { name: 'Pure White', hex: '#FFFFFF' },
+          { name: 'Neon Coral', hex: '#F43F5E' },
+          { name: 'Cyan Blue', hex: '#06B6D4' },
+          { name: 'Emerald', hex: '#10B981' }
+        ]
+      },
+      {
+        id: 'base_plate',
+        name: 'Base Plate / Backing Color',
+        defaultColor: '#0F172A',
+        options: [
+          { name: 'Matte Obsidian', hex: '#0F172A' },
+          { name: 'Deep Space Navy', hex: '#1E3A8A' },
+          { name: 'Graphite Gray', hex: '#475569' },
+          { name: 'Pastel Lilac', hex: '#A855F7' }
+        ]
+      }
     ],
-    variants: [
-      { name: 'Printer Only', price: 499.00, sku: 'ELG-ST4-STD' },
-      { name: 'Studio Bundle (+ Wash & Cure Station Plus)', price: 699.00, sku: 'ELG-ST4-WCS' }
-    ],
-    specs: {
-      'Screen Type': '10-inch 12K Monochrome LCD',
-      'XY Resolution': '19 × 24 μm (Microns)',
-      'Light Source': 'COB Refractive UV LED (405nm)',
-      'Layer Height': '0.01 - 0.2 mm',
-      'Release Mechanism': 'High-Speed Dynamic Tilt Vat'
-    },
-    whatInBox: ['Saturn 4 Ultra Printer', 'Laser-etched Build Plate', 'Resin Vat with PFA Film', 'USB Air Purifier', 'Tool kit, gloves & masks'],
-    warranty: '1-Year Official Warranty with Screen Replacement Guarantee',
-    shippingInfo: 'Fast dispatch within 24 hours in reinforced packaging.'
-  },
-  {
-    id: 'prod-printer-pro-idex',
-    title: 'Fusion3D Forge IDEX Dual-Extruder Industrial 3D Printer',
-    brand: 'Fusion3D Apex',
-    category: '3d-printers',
-    categoryLabel: '3D Printers',
-    price: 1899.00,
-    originalPrice: 2499.00,
-    discount: '24% off',
-    rating: 4.9,
-    reviewCount: 164,
-    stock: 12,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-PRT-IDEX-02',
-    image: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Industrial IDEX',
-    technology: 'IDEX Dual Nozzle',
-    buildVolume: '350 x 300 x 400 mm',
-    printSpeed: 'Up to 400 mm/s',
-    description: 'Independent Dual Extrusion (IDEX) allows seamless printing of water-soluble supports (PVA/BVOH) for impossible overhangs, or synchronous mirror & duplicate printing for doubled manufacturing throughput.',
-    highlights: [
-      'Independent Dual Toolheads with automatic nozzle parking',
-      'Actively heated build chamber up to 70°C prevents warping in Nylon and Polycarbonate',
-      'Direct water-soluble support compatibility for intricate internal geometries',
-      'Continuous print-farm API integration with auto job queue'
-    ],
-    specs: {
-      'Technology': 'Independent Dual Extrusion (IDEX)',
-      'Build Volume': '350 × 300 × 400 mm³',
-      'Chamber Heater': 'Active 70 °C PTC Heated Chamber',
-      'Nozzle Temperatures': 'Up to 350 °C Hardened Alloy'
-    },
-    whatInBox: ['Forge IDEX Printer', 'Dual Toolhead assemblies', 'PVA Soluble support spool 500g', 'Tool chest & calibration kit'],
-    warranty: '2-Year Commercial & Industrial On-Site Warranty'
-  },
-
-  // --- FILAMENTS ---
-  {
-    id: 'prod-filament-pla',
-    title: 'Fusion3D HyperSpeed PLA+ 1.75mm 1kg High-Flow Spool',
-    brand: 'Fusion3D Apex',
-    category: 'filaments',
-    categoryLabel: 'Filaments',
-    price: 24.99,
-    originalPrice: 34.99,
-    discount: '28% off',
-    rating: 4.8,
-    reviewCount: 1240,
-    stock: 240,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-FIL-PLA-01',
-    image: 'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Fast Flow 600mm/s',
-    material: 'High-Purity PLA+ Polymer',
-    diameter: '1.75 mm ± 0.02 mm',
-    weight: '1.0 kg (2.2 lbs)',
-    nozzleTemp: '190°C - 230°C',
-    bedTemp: '50°C - 60°C',
-    color: '#3b82f6',
-    availableColors: [
-      { name: 'Cobalt Blue', hex: '#3b82f6' },
-      { name: 'Matte Charcoal', hex: '#1e293b' },
-      { name: 'Signal Orange', hex: '#f97316' },
-      { name: 'Arctic White', hex: '#f8fafc' },
-      { name: 'Emerald Green', hex: '#10b981' }
-    ],
-    description: 'Specially formulated with molecular chain length control to deliver rapid melt fluidity and instant cooling. Delivers 5x faster printing speeds without nozzle clogs, stringing, or brittle layer adhesion.',
-    highlights: [
-      'Laser-gauged diameter tolerance of ±0.02mm eliminates extrusion variation',
-      'Vacuum-sealed with industrial desiccant in an eco-friendly cardboard spool',
-      'Enhanced impact toughness over standard PLA by 250%'
-    ],
-    specs: {
-      'Melt Flow Index': '18 g/10min (210°C, 2.16kg)',
-      'Tensile Strength': '62 MPa',
-      'Density': '1.24 g/cm³',
-      'Spool Material': '100% Recyclable Biodegradable Cardboard'
-    },
     reviews: [
-      { user: 'Dan Higgins', rating: 5, date: '11 Sep 2026', comment: 'Zero stringing at 500mm/s on my Klipper machine. Colors are vibrant and matte.' }
+      {
+        id: 'rev-1',
+        author: 'Jessica Miller',
+        rating: 5,
+        date: '3 days ago',
+        comment: 'The dual color lettering is super sharp and the split-ring loop is very sturdy. Exactly as previewed in the 3D model!',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80']
+      },
+      {
+        id: 'rev-2',
+        author: 'Daniel Craig',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'Ordered 3 of these as gifts for my team. Fast delivery via BlueDart and zero stringing on the text.',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=400&auto=format&fit=crop&q=80']
+      },
+      {
+        id: 'rev-3',
+        author: 'Priya Sharma',
+        rating: 4,
+        date: '2 weeks ago',
+        comment: 'Great quality and colors. The silk gold top text pops nicely against the black base plate.',
+        verified: true,
+        images: []
+      }
     ]
   },
   {
-    id: 'prod-filament-petgcf',
-    title: 'Carbon-Fiber Reinforced PETG-CF 1.75mm 1kg High-Rigidity',
-    brand: 'Fusion3D Apex',
-    category: 'filaments',
-    categoryLabel: 'Filaments',
-    price: 38.99,
-    originalPrice: 49.99,
-    discount: '22% off',
-    rating: 4.9,
-    reviewCount: 680,
-    stock: 95,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-FIL-PETGCF',
-    image: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
+    id: 'prod-cake-topper-wedding',
+    name: 'Custom Calligraphy Wedding & Birthday Cake Topper',
+    category: 'cake-toppers',
+    categoryLabel: 'Cake Toppers',
+    price: 24.50,
+    originalPrice: 32.00,
+    rating: 5.0,
+    reviewsCount: 92,
+    printTime: '1h 25m',
+    printTimeMinutes: 85,
+    badge: 'Popular Gift',
+    dimensions: '160 x 180 x 4 mm',
+    material: 'Food-Safe Organic Bio-PLA',
+    layerHeight: '0.12mm High Precision',
+    weight: '32g',
+    description: 'Bespoke floating script cake topper with integrated food-safe support stakes. Food-contact safe, lightweight so it will not sink into frosting, with radiant silk sheen reflection.',
+    image: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=800&auto=format&fit=crop&q=80',
     gallery: [
-      'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80'
+      'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=800&auto=format&fit=crop&q=80'
     ],
-    badge: 'Structural Carbon',
-    material: 'PETG + 15% Chopped Carbon Fiber',
-    diameter: '1.75 mm',
-    weight: '1.0 kg',
-    color: '#334155',
-    availableColors: [
-      { name: 'Carbon Stealth Black', hex: '#0f172a' },
-      { name: 'Gunmetal Titanium', hex: '#475569' }
+    modelType: 'topper',
+    allowCustomText: true,
+    customTextPlaceholder: 'e.g. Mr & Mrs Miller, or Happy 25th',
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'script_finish',
+        name: 'Calligraphy Color Finish',
+        defaultColor: '#E2B872',
+        options: [
+          { name: 'Champagne Silk Gold', hex: '#E2B872' },
+          { name: 'Metallic Rose Gold', hex: '#E0807E' },
+          { name: 'Sterling Silver', hex: '#CBD5E1' },
+          { name: 'Gloss Pearl White', hex: '#F8FAFC' },
+          { name: 'Matte Velvet Black', hex: '#18181B' }
+        ]
+      }
     ],
-    description: 'Combining the moisture resistance and ease of PETG with high-modulus chopped carbon fibers. Delivers a gorgeous matte texture that completely hides layer lines while drastically improving flexural stiffness.',
-    highlights: [
-      '15% high-strength chopped carbon fibers prevent thermal warping',
-      'Requires hardened steel nozzle (0.4mm or 0.6mm recommended)',
-      'Ideal for drone arms, robotics frames, and camera mounts'
-    ],
-    specs: {
-      'Tensile Modulus': '4,500 MPa',
-      'Heat Deflection Temp': '78 °C at 0.45 MPa',
-      'Nozzle Temperature': '240°C - 260°C'
-    }
+    reviews: [
+      {
+        id: 'rev-4',
+        author: 'Elena Rostova',
+        rating: 5,
+        date: '5 days ago',
+        comment: 'Stunning centerpiece on our wedding cake! The champagne silk gold finish sparkled under the venue lights.',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=400&auto=format&fit=crop&q=80']
+      },
+      {
+        id: 'rev-5',
+        author: 'Michael Chang',
+        rating: 5,
+        date: '2 weeks ago',
+        comment: 'Safe food grade plastic, sturdy stems that hold firmly in multi-tier buttercream cakes.',
+        verified: true,
+        images: []
+      }
+    ]
   },
   {
-    id: 'prod-filament-nyloncf',
-    title: 'Engineering PA12-CF Industrial Carbon Nylon 1kg Spool',
-    brand: 'Fusion3D Apex',
-    category: 'filaments',
-    categoryLabel: 'Filaments',
-    price: 64.99,
-    originalPrice: 84.99,
-    discount: '23% off',
-    rating: 4.9,
-    reviewCount: 340,
-    stock: 45,
-    inStock: true,
-    sku: 'F3D-FIL-PA12CF',
-    image: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Aerospace Grade',
-    material: 'Polyamide 12 + 20% Carbon Fiber',
-    diameter: '1.75 mm',
-    weight: '1.0 kg',
-    description: 'For mission-critical end-use parts. Exceptional tensile strength, low moisture absorption compared to PA6, high continuous heat deflection (190°C), and chemical resistance against oils and gasoline.',
-    specs: {
-      'Heat Deflection Temp': '190 °C',
-      'Tensile Strength': '105 MPa',
-      'Recommended Nozzle': 'Hardened Steel or Ruby 280°C - 300°C'
-    }
-  },
-  {
-    id: 'prod-filament-tpu',
-    title: 'FlexiGrip TPU 95A High-Resilience Flexible Filament 1kg',
-    brand: 'Fusion3D Apex',
-    category: 'filaments',
-    categoryLabel: 'Filaments',
-    price: 29.99,
-    originalPrice: 39.99,
-    discount: '25% off',
-    rating: 4.7,
-    reviewCount: 510,
-    stock: 80,
-    inStock: true,
-    sku: 'F3D-FIL-TPU95',
-    image: 'https://images.unsplash.com/photo-1629654297299-c8506221ca97?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1629654297299-c8506221ca97?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Extreme Flexibility',
-    material: 'Thermoplastic Polyurethane 95A',
-    description: 'Rubber-like flexibility with 450% elongation at break. Perfect for gaskets, RC tires, protective phone bumpers, and wearable vibration dampeners.',
-    specs: {
-      'Shore Hardness': '95A',
-      'Elongation at Break': '480%',
-      'Print Speed': '40 - 100 mm/s Direct Drive'
-    }
-  },
-
-  // --- RESINS ---
-  {
-    id: 'prod-resin-8k-standard',
-    title: 'Fusion3D 8K High-Definition Photopolymer UV Resin (1kg)',
-    brand: 'Fusion3D Apex',
-    category: 'resins',
-    categoryLabel: 'Resins',
-    price: 34.99,
-    originalPrice: 44.99,
-    discount: '22% off',
-    rating: 4.9,
-    reviewCount: 420,
-    stock: 110,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-RSN-8K-01',
-    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Micro-Detail 8K',
-    material: 'UV-Curing Liquid Resin (405nm)',
-    weight: '1.0 kg Bottle',
-    color: '#64748b',
-    availableColors: [
-      { name: 'Space Gray', hex: '#64748b' },
-      { name: 'Obsidian Black', hex: '#18181b' },
-      { name: 'Clear Crystal', hex: '#e2e8f0' },
-      { name: 'Sculptors Cream', hex: '#fef3c7' }
-    ],
-    description: 'Ultra-low shrinkage formulation designed specifically for high-density 8K and 12K monochrome resin printers. Renders razor-sharp eyelashes, chainmail links, and mechanical gears without layer expansion.',
-    specs: {
-      'Viscosity': '180 - 250 mPa·s (25°C)',
-      'Shrinkage Rate': '< 3.5%',
-      'Shore Hardness': '84D',
-      'Wavelength': '385 - 405 nm'
-    }
-  },
-  {
-    id: 'prod-resin-tough',
-    title: 'Pro-Impact ABS-Like Tough Engineering Resin (1kg)',
-    brand: 'Fusion3D Apex',
-    category: 'resins',
-    categoryLabel: 'Resins',
-    price: 42.99,
-    originalPrice: 54.99,
-    discount: '21% off',
-    rating: 4.8,
-    reviewCount: 290,
-    stock: 75,
-    inStock: true,
-    sku: 'F3D-RSN-TOUGH',
-    image: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Non-Brittle Impact Resistant',
-    description: 'Engineered with high elongation and impact resistance, eliminating the brittleness of standard resin. Can be drilled, tapped with M3/M4 threads, and dropped on concrete without shattering.'
-  },
-
-  // --- SPARE PARTS & NOZZLES ---
-  {
-    id: 'prod-nozzle-hardened-kit',
-    title: 'Hardened Steel High-Wear Nozzle 5-Piece Kit (0.2, 0.4, 0.6, 0.8mm)',
-    brand: 'Fusion3D Apex',
-    category: 'spare-parts',
-    categoryLabel: 'Spare Parts & Nozzles',
-    price: 26.99,
-    originalPrice: 39.99,
-    discount: '32% off',
-    rating: 4.9,
-    reviewCount: 780,
-    stock: 180,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-NZL-HD-KIT',
-    image: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Mohs Hardness 7.8',
-    description: 'Precision CNC-machined from heat-treated tool steel with internal electroless nickel coating. Resists abrasive filaments including carbon fiber, glow-in-the-dark strontium, and wood composites for 500+ print hours.',
-    specs: {
-      'Nozzle Diameters Included': '1x 0.2mm, 2x 0.4mm, 1x 0.6mm, 1x 0.8mm',
-      'Thread Type': 'M6 standard (V6 / Bambu / MK8 compatible)',
-      'Max Temp': '450 °C'
-    }
-  },
-  {
-    id: 'prod-nozzle-ruby',
-    title: 'Synthetic Ruby Tipped Ultra-Precision 0.4mm Wear-Proof Nozzle',
-    brand: 'Fusion3D Apex',
-    category: 'spare-parts',
-    categoryLabel: 'Spare Parts & Nozzles',
-    price: 59.99,
-    originalPrice: 79.99,
-    discount: '25% off',
-    rating: 4.9,
-    reviewCount: 310,
-    stock: 40,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-NZL-RUBY',
-    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Lifetime Wear Guarantee',
-    description: 'Features a genuine sapphire-grade monocrystalline synthetic ruby orifice set in high-thermal conductivity copper alloy. Offers the thermal speed of brass with diamond-like abrasion resistance.'
-  },
-  {
-    id: 'prod-hotend-ceramic',
-    title: 'High-Flow 300°C Ceramic Core All-Metal Hotend Assembly',
-    brand: 'Fusion3D Apex',
-    category: 'spare-parts',
-    categoryLabel: 'Spare Parts & Nozzles',
-    price: 49.99,
-    originalPrice: 69.99,
-    discount: '28% off',
-    rating: 4.8,
-    reviewCount: 245,
-    stock: 65,
-    inStock: true,
-    sku: 'F3D-HOT-CERAMIC',
-    image: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: '32mm³/s Volumetric Flow',
-    description: '360° cylindrical ceramic heating element heats from room temperature to 200°C in just 32 seconds. Bi-metal titanium/copper heatbreak prevents heat creep clogs.'
-  },
-
-  // --- ACCESSORIES & BUILD PLATES ---
-  {
-    id: 'prod-plate-pei',
-    title: 'Double-Sided Gold Textured PEI Spring Steel Build Plate (256x256mm)',
-    brand: 'Fusion3D Apex',
-    category: 'accessories',
-    categoryLabel: 'Accessories & Build Plates',
-    price: 34.99,
-    originalPrice: 48.99,
-    discount: '28% off',
-    rating: 4.9,
-    reviewCount: 960,
-    stock: 150,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-PLT-PEI-256',
-    image: 'https://images.unsplash.com/photo-1629654297299-c8506221ca97?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1629654297299-c8506221ca97?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Zero Glue Sticks Needed',
-    description: 'Electrostatically powder-coated with genuine Ultem 1000 PEI. Adheres strongly when hot (60°C+) and parts release themselves with a gentle flex once cooled to room temperature.',
-    specs: {
-      'Size': '256 × 256 mm (Bambu, Voron & Ender compatible)',
-      'Plate Core': '0.5mm hardened Swedish spring steel',
-      'Coating': 'Double-sided textured coarse powder PEI'
-    }
-  },
-  {
-    id: 'prod-dryer-box',
-    title: 'Active Heated Filament Dryer Box with Real-Time RH% Display',
-    brand: 'Fusion3D Apex',
-    category: 'accessories',
-    categoryLabel: 'Accessories & Build Plates',
-    price: 54.99,
-    originalPrice: 74.99,
-    discount: '26% off',
-    rating: 4.8,
-    reviewCount: 512,
-    stock: 60,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-DRY-BOX-01',
-    image: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: 'Active 70°C Heating',
-    description: 'Eliminates moisture-induced popping, stringing, and weakness. PTC 360° fan heating reaches up to 70°C for Nylon, PETG, and PLA with Teflon feed tube for printing directly from the box.'
-  },
-
-  // --- PRINTING TOOLS ---
-  {
-    id: 'prod-tools-calipers',
-    title: 'Professional IP54 Stainless Steel Digital Calipers 150mm (0.01mm Acc)',
-    brand: 'Fusion3D Apex',
-    category: 'tools',
-    categoryLabel: 'Printing Tools',
-    price: 28.99,
-    originalPrice: 39.99,
-    discount: '27% off',
-    rating: 4.9,
-    reviewCount: 890,
-    stock: 140,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-TLS-CAL-150',
-    image: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092162384-8987c1d64718?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: '0.01mm Precision',
-    description: 'Precision hardened stainless steel measuring calipers with high-contrast LCD screen. Instant mm/inch/fraction toggling with zero calibration at any point. Essential for reverse engineering and 3D printing tolerances.'
-  },
-  {
-    id: 'prod-tools-kit',
-    title: 'Master 3D Printing Post-Processing & Deburring Toolset (24 Pieces)',
-    brand: 'Fusion3D Apex',
-    category: 'tools',
-    categoryLabel: 'Printing Tools',
-    price: 32.99,
-    originalPrice: 45.99,
-    discount: '28% off',
-    rating: 4.8,
-    reviewCount: 430,
-    stock: 90,
-    inStock: true,
-    sku: 'F3D-TLS-MST-24',
-    image: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: '24-Piece Workshop Set',
-    description: 'Includes 360-degree rotating deburring tool with 10 spare blades, brass wire nozzle brushes, ergonomic bed scraper, flush cutters, precision hobby knife set, and nozzle cleaning needles.'
-  },
-
-  // --- CUSTOM 3D PRINTED PRODUCTS & KITS ---
-  {
-    id: 'prod-custom-heart',
-    title: 'Anatomical Human Heart 3D Model (Medical-Grade Study Replica)',
-    brand: 'Fusion3D Works',
-    category: 'custom-prints',
-    categoryLabel: 'Custom 3D Prints',
-    price: 49.99,
-    originalPrice: 79.99,
-    discount: '37% off',
-    rating: 4.9,
-    reviewCount: 620,
-    stock: 50,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-MDL-HEART-01',
-    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80'
-    ],
-    badge: '1:1 Life-Size Anatomy',
-    material: 'Medical PLA+ (Non-toxic)',
-    color: '#ef4444',
-    dimensions: '120 x 95 x 145 mm',
-    printTime: '14 hrs 30 min',
-    description: '100% anatomically accurate scaled model derived from high-resolution medical micro-CT scan data. Demonstrates internal ventricles, coronary arteries, and pulmonary valves. Cast on a heavy acrylic display plinth.',
-    specs: {
-      'Layer Height': '0.12 mm (120 microns)',
-      'Infill': '25% Gyroid Infill',
-      'Finish': 'Vapor micro-smoothed finish'
-    }
-  },
-  {
-    id: 'prod-custom-samurai',
-    title: 'Cyber Samurai Mech Figurine (8K SLA Resin Collector Edition)',
-    brand: 'Fusion3D Works',
-    category: 'custom-prints',
-    categoryLabel: 'Custom 3D Prints',
+    id: 'prod-nameboard-desk',
+    name: 'Gamer Tag & Desk 3D Illuminated Name Board',
+    category: 'name-boards',
+    categoryLabel: 'Name Boards',
     price: 39.99,
-    originalPrice: 59.99,
-    discount: '33% off',
-    rating: 4.9,
-    reviewCount: 890,
-    stock: 45,
-    inStock: true,
-    isBestSeller: true,
-    sku: 'F3D-MDL-SAMURAI',
-    image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
+    originalPrice: 49.99,
+    rating: 4.8,
+    reviewsCount: 64,
+    printTime: '4h 10m',
+    printTimeMinutes: 250,
+    badge: 'Trending',
+    dimensions: '220 x 80 x 45 mm',
+    material: 'Diffusion PETG + Matte PLA',
+    layerHeight: '0.20mm Heavy Duty',
+    weight: '190g',
+    description: 'Freestanding 3D desk nameplate featuring dual-extruded 3D floating characters mounted on a hollow channel chassis that supports internal LED strip backlighting.',
+    image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
     gallery: [
-      'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'
+      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&auto=format&fit=crop&q=80'
     ],
-    badge: '8K Resin 28-Micron',
-    color: '#8b5cf6',
-    dimensions: '85 x 65 x 160 mm',
-    description: 'Master sculpted futuristic cybernetic warrior with magnetic detachable twin katanas, micro-etched power armor plates, and weighted display base. Hand-cleaned and UV-cured, ready for miniature painting or instant desktop showcase.'
+    modelType: 'signboard',
+    allowCustomText: true,
+    customTextPlaceholder: 'e.g. VORTEX, SARAH STUDIO, or DEV-LEAD',
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'font_face',
+        name: 'Front Letter Face Color',
+        defaultColor: '#06B6D4',
+        options: [
+          { name: 'Cyber Cyan', hex: '#06B6D4' },
+          { name: 'Neon Orange', hex: '#F97316' },
+          { name: 'Toxic Lime', hex: '#84CC16' },
+          { name: 'Hot Magenta', hex: '#D946EF' },
+          { name: 'Signal White', hex: '#FFFFFF' }
+        ]
+      },
+      {
+        id: 'frame_housing',
+        name: 'Desk Stand Frame Color',
+        defaultColor: '#0F172A',
+        options: [
+          { name: 'Stealth Carbon Black', hex: '#0F172A' },
+          { name: 'Concrete Gray', hex: '#64748B' },
+          { name: 'Arctic White', hex: '#F1F5F9' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-6',
+        author: 'Liam Vance',
+        rating: 5,
+        date: '4 days ago',
+        comment: 'Looks wicked on my battlestation stream setup. Cyber cyan really contrasts with the matte black chassis.',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&auto=format&fit=crop&q=80']
+      }
+    ]
   },
   {
-    id: 'prod-parts-voronkit',
-    title: 'Voron 2.4 R2 Complete Functional Printed Parts Kit (ABS/ASA)',
-    brand: 'Fusion3D Works',
-    category: 'custom-prints',
-    categoryLabel: 'Custom 3D Prints',
-    price: 119.99,
-    originalPrice: 159.99,
-    discount: '25% off',
+    id: 'prod-lithophane-lamp',
+    name: 'Custom 3D Lithophane Memory Photo Lamp Gift',
+    category: '3d-gift',
+    categoryLabel: '3D Gifts',
+    price: 34.00,
+    originalPrice: 45.00,
     rating: 4.9,
-    reviewCount: 380,
-    stock: 25,
-    inStock: true,
-    isFeatured: true,
-    sku: 'F3D-KIT-VORON24',
-    image: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80',
+    reviewsCount: 110,
+    printTime: '5h 30m',
+    printTimeMinutes: 330,
+    badge: 'Photo Upload',
+    dimensions: '140 x 140 x 160 mm',
+    material: 'Optical Translucent PLA & Wood PLA',
+    layerHeight: '0.10mm Ultra Fine',
+    weight: '140g',
+    description: 'Transform your cherished couple, family, or pet photos into a light-diffusing cylindrical lithophane. When backlit by the included warm USB LED base, your image magically appears in photorealistic grayscale relief.',
+    image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80',
     gallery: [
-      'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80'
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1540932239986-30128078f3c5?w=800&auto=format&fit=crop&q=80'
     ],
-    badge: 'PIF Spec Verified',
-    material: 'Heat-Resistant ASA Polymer',
-    description: 'Every functional part for building a Voron 2.4 R2 300/350mm CoreXY machine. Printed strictly to Voron Design Print-It-Forward (PIF) standards: 4 perimeters, 40% infill, with brass heat-set inserts pre-installed.'
+    modelType: 'lamp',
+    allowCustomText: true,
+    customTextPlaceholder: 'Base engraving text (e.g. Always & Forever 2026)',
+    requiresUserImage: true,
+    minImages: 1,
+    maxImages: 3,
+    imageInstructions: 'Upload 1 to 3 high-contrast portrait or landscape photos. Our CAD software converts your pictures into curved 3D light-relief lithophane panels.',
+    customizableSections: [
+      {
+        id: 'base_pedestal',
+        name: 'Pedestal Lamp Base Color',
+        defaultColor: '#78350F',
+        options: [
+          { name: 'Walnut Wood Grain', hex: '#78350F' },
+          { name: 'Matte Marble White', hex: '#F8FAFC' },
+          { name: 'Charcoal Black', hex: '#1E293B' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-7',
+        author: 'Sophia Chen',
+        rating: 5,
+        date: '2 days ago',
+        comment: 'I uploaded our wedding picture and the lithophane detail is unbelievable! When the warm LED turns on, everyone gasps.',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&auto=format&fit=crop&q=80']
+      },
+      {
+        id: 'rev-8',
+        author: 'Rajiv Patel',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'Bought this for my mother’s 60th birthday with a photo of her grandkids. Super fast shipping and pristine packaging.',
+        verified: true,
+        images: ['https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&auto=format&fit=crop&q=80']
+      }
+    ]
+  },
+  {
+    id: 'prod-spotify-keychain',
+    name: '3D Scannable Spotify Song Code Keychain',
+    category: '3d-keychain',
+    categoryLabel: '3D Keychains',
+    price: 11.50,
+    originalPrice: 15.00,
+    rating: 4.9,
+    reviewsCount: 230,
+    printTime: '35m',
+    printTimeMinutes: 35,
+    badge: 'Under $15',
+    dimensions: '70 x 20 x 5 mm',
+    material: 'UV Stable PLA+',
+    layerHeight: '0.12mm High Precision',
+    weight: '12g',
+    description: 'Precision embossed Spotify barcode that scans instantly using the Spotify mobile camera! Plays your special anniversary song, podcast, or romantic playlist whenever scanned.',
+    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80'
+    ],
+    modelType: 'keychain',
+    allowCustomText: true,
+    customTextPlaceholder: 'Song Title & Artist (e.g. Perfect - Ed Sheeran)',
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'code_bars',
+        name: 'Scannable Code Bars Color',
+        defaultColor: '#10B981',
+        options: [
+          { name: 'Spotify Green', hex: '#10B981' },
+          { name: 'Pitch Black', hex: '#000000' },
+          { name: 'Silver Chrome', hex: '#CBD5E1' }
+        ]
+      },
+      {
+        id: 'fob_body',
+        name: 'Keychain Body Color',
+        defaultColor: '#0F172A',
+        options: [
+          { name: 'Matte Black', hex: '#0F172A' },
+          { name: 'Opal White', hex: '#FFFFFF' },
+          { name: 'Pastel Blue', hex: '#38BDF8' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-9',
+        author: 'Brandon Taylor',
+        rating: 5,
+        date: '6 days ago',
+        comment: 'Scans instantly every single time on iPhone and Android Spotify app. Incredible gift for our 2nd anniversary.',
+        verified: true,
+        images: []
+      }
+    ]
+  },
+  {
+    id: 'prod-sculpture-infinity-heart',
+    name: 'Geometric Infinity Heart 3D Sculpture Gift',
+    category: '3d-gift',
+    categoryLabel: '3D Gifts',
+    price: 28.00,
+    originalPrice: 38.00,
+    rating: 4.8,
+    reviewsCount: 75,
+    printTime: '2h 50m',
+    printTimeMinutes: 170,
+    badge: 'Anniversary Pick',
+    dimensions: '130 x 120 x 40 mm',
+    material: 'Silk Tricolor Co-Extruded PLA',
+    layerHeight: '0.16mm Silk Finish',
+    weight: '85g',
+    description: 'An elegant Mobius strip infinity heart that twists gracefully in 3-dimensional space. Self-standing on any mantle or office desk with reflective prismatic dual-tone luster.',
+    image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&auto=format&fit=crop&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=800&auto=format&fit=crop&q=80'
+    ],
+    modelType: 'statue',
+    allowCustomText: false,
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'sculpture_tone',
+        name: 'Ribbon Gradient Tone',
+        defaultColor: '#F43F5E',
+        options: [
+          { name: 'Silk Rose Quartz', hex: '#F43F5E' },
+          { name: 'Imperial Gold', hex: '#EAB308' },
+          { name: 'Cosmic Purple-Blue', hex: '#6366F1' },
+          { name: 'Pure Alabaster', hex: '#F8FAFC' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-10',
+        author: 'Chloe Bennett',
+        rating: 5,
+        date: '1 week ago',
+        comment: 'Silky smooth surface with beautiful shifting colors as the sunlight hits it.',
+        verified: true,
+        images: []
+      }
+    ]
+  },
+  {
+    id: 'prod-gyroscope-fidget',
+    name: 'Precision Print-in-Place Gyroscope Fidget Cube',
+    category: '3d-gift',
+    categoryLabel: '3D Gifts',
+    price: 15.00,
+    originalPrice: 19.99,
+    rating: 4.9,
+    reviewsCount: 189,
+    printTime: '1h 10m',
+    printTimeMinutes: 70,
+    badge: 'Kinetic Art',
+    dimensions: '60 x 60 x 60 mm',
+    material: 'Tough Impact PLA',
+    layerHeight: '0.20mm Free-Spinning Clearance',
+    weight: '48g',
+    description: 'Printed fully assembled in a single job with zero screws or glue required. Four concentric nested gimbal rings spin freely around a central gemstone core for soothing tactile desk therapy.',
+    image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'
+    ],
+    modelType: 'statue',
+    allowCustomText: false,
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'outer_rings',
+        name: 'Outer Gimbal Rings',
+        defaultColor: '#4F46E5',
+        options: [
+          { name: 'Cobalt Indigo', hex: '#4F46E5' },
+          { name: 'Neon Green', hex: '#22C55E' },
+          { name: 'Vibrant Orange', hex: '#F97316' },
+          { name: 'Stealth Black', hex: '#18181B' }
+        ]
+      },
+      {
+        id: 'core_sphere',
+        name: 'Inner Gem Core',
+        defaultColor: '#EAB308',
+        options: [
+          { name: 'Golden Sun', hex: '#EAB308' },
+          { name: 'Ruby Glow', hex: '#EF4444' },
+          { name: 'Diamond White', hex: '#F8FAFC' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-11',
+        author: 'Marcus Brody',
+        rating: 5,
+        date: '3 days ago',
+        comment: 'Mind-blowing print-in-place tolerances. Spins silently and endlessly on my workstation desk.',
+        verified: true,
+        images: []
+      }
+    ]
+  },
+  {
+    id: 'prod-planter-poly',
+    name: 'Nordic Low-Poly Self-Watering Desk Planter',
+    category: '3d-gift',
+    categoryLabel: '3D Gifts',
+    price: 22.00,
+    originalPrice: 28.00,
+    rating: 4.7,
+    reviewsCount: 52,
+    printTime: '3h 15m',
+    printTimeMinutes: 195,
+    badge: 'Home Decor',
+    dimensions: '110 x 110 x 95 mm',
+    material: 'Waterproof Recycled PETG',
+    layerHeight: '0.24mm Watertight Perimeters',
+    weight: '115g',
+    description: 'Modern geometric succulent pot with hidden capillary water reservoir in the base. Prevents over-watering and root rot while serving as a striking architectural desk ornament.',
+    image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=800&auto=format&fit=crop&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1545241047-6083a3684587?w=800&auto=format&fit=crop&q=80'
+    ],
+    modelType: 'planter',
+    allowCustomText: false,
+    requiresUserImage: false,
+    minImages: 0,
+    maxImages: 0,
+    customizableSections: [
+      {
+        id: 'planter_body',
+        name: 'Planter Pot Finish',
+        defaultColor: '#10B981',
+        options: [
+          { name: 'Sage Green', hex: '#10B981' },
+          { name: 'Warm Terracotta', hex: '#EA580C' },
+          { name: 'Carrara Marble', hex: '#E2E8F0' },
+          { name: 'Matte Charcoal', hex: '#334155' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'rev-12',
+        author: 'Hannah Lee',
+        rating: 5,
+        date: '2 weeks ago',
+        comment: 'Completely watertight and looks like modern Scandinavian ceramics.',
+        verified: true,
+        images: []
+      }
+    ]
   }
+];
+
+export const CATEGORIES = [
+  { id: 'all', name: 'All 3D Creations', icon: 'Sparkles', count: 8 },
+  { id: '3d-keychain', name: '3D Keychains', icon: 'Key', count: 2 },
+  { id: 'cake-toppers', name: 'Cake Toppers', icon: 'Cake', count: 1 },
+  { id: 'name-boards', name: 'Name Boards', icon: 'Type', count: 1 },
+  { id: '3d-gift', name: '3D Gifts & Art', icon: 'Gift', count: 4 }
 ];

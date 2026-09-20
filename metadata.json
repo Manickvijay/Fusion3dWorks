@@ -1,6 +1,6 @@
 {
   "name": "Fusion3D Works",
-  "description": "Premium 3D Printing E-Commerce Platform selling 3D Printers, Filaments, Resins, Spare Parts, Accessories, and Custom 3D Printing Services with complete customer storefront and comprehensive admin management portal.",
+  "description": "Custom 3D Printing E-Commerce Platform featuring bespoke 3D keychains, cake toppers, illuminated name boards, 3D gifts, real-time 3D WebGL customization, animated add-to-cart, customer order tracking, and an admin 3D printer work list scheduler.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
