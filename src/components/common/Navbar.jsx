@@ -14,7 +14,8 @@ import {
   Truck,
   Box,
   SlidersHorizontal,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 
@@ -23,11 +24,14 @@ export default function Navbar() {
     currentUser,
     setIsLoginModalOpen,
     logout,
-    switchRole,
     cartItemCount,
     setIsCartOpen,
     cartBadgeBounce,
-    wishlist
+    wishlist,
+    backendStatus,
+    isBackendSyncing,
+    syncWithBackend,
+    backendUrl
   } = useShop();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,29 +62,50 @@ export default function Navbar() {
           </span>
         </div>
 
-        {/* Quick Demo Switcher in Announcement Bar */}
-        <div className="flex items-center space-x-2 text-slate-400">
-          <span className="text-[10px] hidden md:inline">Quick Test:</span>
+        {/* Backend Status & Quick Demo Switcher */}
+        <div className="flex items-center space-x-2.5 text-slate-400">
           <button
-            onClick={() => switchRole('customer')}
-            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-              currentUser?.role === 'customer'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
+            onClick={() => syncWithBackend(true)}
+            title={`Render Backend: ${backendUrl}\nClick to refresh connection`}
+            className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-[10px] text-slate-300 transition-colors shadow-xs cursor-pointer"
           >
-            Customer Mode
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                backendStatus === 'connected'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : backendStatus === 'checking' || isBackendSyncing
+                  ? 'bg-amber-400 animate-ping'
+                  : 'bg-indigo-400'
+              }`}
+            />
+            <span className="font-mono text-[10px]">
+              {backendStatus === 'connected'
+                ? 'Render Live'
+                : isBackendSyncing
+                ? 'Syncing...'
+                : 'Render Backend'}
+            </span>
+            <RefreshCw className={`w-2.5 h-2.5 text-slate-400 ${isBackendSyncing ? 'animate-spin' : ''}`} />
           </button>
-          <button
-            onClick={() => switchRole('admin')}
-            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-              currentUser?.role === 'admin'
-                ? 'bg-orange-500 text-white shadow-xs'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            Admin Mode
-          </button>
+
+          {currentUser ? (
+            <span className="text-[10px] text-slate-300 hidden md:flex items-center space-x-1.5">
+              <span>Signed in as:</span>
+              <span className="font-bold text-white">{currentUser.name}</span>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] uppercase font-mono font-bold ${
+                currentUser.role === 'admin' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+              }`}>
+                {currentUser.role}
+              </span>
+            </span>
+          ) : (
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="text-[10px] text-indigo-300 hover:text-white transition-colors font-semibold hidden md:inline cursor-pointer"
+            >
+              Sign In / Register
+            </button>
+          )}
         </div>
       </div>
 

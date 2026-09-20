@@ -10,5 +10,12 @@ export default defineConfig({
     port: 3000,
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'https://fusion3dworks-backend.onrender.com',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
 })

@@ -12,7 +12,9 @@ import {
   Edit2,
   Save,
   Box,
-  X
+  X,
+  LogIn,
+  ArrowRight
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import CancelOrderModal from '../components/common/CancelOrderModal';
@@ -22,35 +24,84 @@ export default function ProfilePage() {
   const initialTab = searchParams.get('tab') || 'orders';
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  const { currentUser, orders, wishlist, products, addToast, cancelOrder, customerApproveDesign, customerRequestDesignChanges } = useShop();
+  const {
+    currentUser,
+    orders,
+    wishlist,
+    products,
+    cancelOrder,
+    customerApproveDesign,
+    customerRequestDesignChanges,
+    setIsLoginModalOpen,
+    updateUserProfile
+  } = useShop();
 
   // Active user's profile state
-  const [profileData, setProfileData] = useState({
-    name: currentUser?.name || 'Alex Rivera',
-    email: currentUser?.email || 'user@gmail.com',
-    phone: currentUser?.phone || '+1 (555) 438-9021',
-    address: currentUser?.address || '742 Evergreen Terrace, Springfield, OR 97477',
-    favoriteMaterial: 'PLA+ Silk PolyTerra',
+  const [profileData, setProfileData] = useState(() => ({
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || '',
+    address: currentUser?.address || '',
+    favoriteMaterial: currentUser?.favoriteMaterial || 'PLA+ Silk PolyTerra',
     favoriteColor: currentUser?.favoriteColor || 'Silk Gold'
-  });
+  }));
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState(null);
   const [cancellingOrder, setCancellingOrder] = useState(null);
 
+  const startEditingProfile = () => {
+    setProfileData({
+      name: currentUser?.name || '',
+      email: currentUser?.email || '',
+      phone: currentUser?.phone || '',
+      address: currentUser?.address || '',
+      favoriteMaterial: currentUser?.favoriteMaterial || 'PLA+ Silk PolyTerra',
+      favoriteColor: currentUser?.favoriteColor || 'Silk Gold'
+    });
+    setIsEditingProfile(true);
+  };
+
   // Filter orders for current user
   const userOrders = (orders || []).filter(
-    o => (o.customerEmail || '').toLowerCase() === (currentUser?.email || 'user@gmail.com').toLowerCase()
+    o => currentUser?.email && (o.customerEmail || '').toLowerCase() === currentUser.email.toLowerCase()
   );
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setIsEditingProfile(false);
-    addToast('Profile information saved successfully!', 'success');
+    await updateUserProfile(profileData);
   };
 
   // Wishlisted products
   const savedProducts = (products || []).filter(p => (wishlist || []).includes(p.id));
+
+  // If user is not logged in, show guest prompt
+  if (!currentUser) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-lg shadow-indigo-100">
+          <User className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Sign In to Your 3D Printing Account</h1>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Log in or create a new account to track your real-time 3D print progress, view design proofs, manage delivery addresses, and save favorites.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setIsLoginModalOpen(true)}
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/25 inline-flex items-center space-x-2 transition-all cursor-pointer text-sm"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Sign In / Create Account</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -360,7 +411,7 @@ export default function ProfilePage() {
               </p>
             </div>
             <button
-              onClick={() => setIsEditingProfile(!isEditingProfile)}
+              onClick={() => isEditingProfile ? setIsEditingProfile(false) : startEditingProfile()}
               className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-colors cursor-pointer"
             >
               <Edit2 className="w-3.5 h-3.5" />

@@ -19,18 +19,19 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
 
   const [shippingAddress, setShippingAddress] = useState({
-    fullName: currentUser?.name || 'Alex Rivera',
-    phone: currentUser?.phone || '+1 (555) 438-9021',
-    address: '742 Evergreen Terrace',
-    city: 'Springfield',
-    state: 'OR',
-    zip: '97477'
+    fullName: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || '',
+    address: currentUser?.address || '',
+    city: '',
+    state: '',
+    zip: ''
   });
 
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('890');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (cart.length === 0) {
@@ -68,11 +69,12 @@ export default function CheckoutPage() {
 
       const createdOrder = placeOrder({
         shippingAddress,
+        customerEmail: shippingAddress.email || currentUser?.email,
         items: [...cart],
         subtotal: cartSubtotal,
         shippingFee,
         total: grandTotal,
-        paymentMethod: paymentMethod === 'card' ? 'Visa •••• 4242' : 'Apple Pay Instant'
+        paymentMethod: paymentMethod === 'card' ? 'Visa / Mastercard (Stripe)' : 'Apple Pay Instant'
       });
 
       addToast(`Order ${createdOrder.id} successfully queued for 3D printing!`, 'success');
@@ -110,6 +112,7 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   required
+                  placeholder="John Doe"
                   value={shippingAddress.fullName}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, fullName: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium"
@@ -117,10 +120,23 @@ export default function CheckoutPage() {
               </div>
 
               <div className="space-y-1">
+                <label className="font-bold text-slate-700">Email Address (Tracking & Invoices)</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={shippingAddress.email}
+                  onChange={(e) => setShippingAddress({ ...shippingAddress, email: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
                 <label className="font-bold text-slate-700">Phone Number (For Tracking)</label>
                 <input
                   type="tel"
                   required
+                  placeholder="+1 (555) 000-0000"
                   value={shippingAddress.phone}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium"

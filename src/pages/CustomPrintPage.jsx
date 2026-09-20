@@ -15,9 +15,10 @@ import {
 import { useShop } from '../context/ShopContext';
 
 export default function CustomPrintPage() {
-  const { addToCart, addToast } = useShop();
+  const { addToCart, addToast, uploadStorageFile } = useShop();
 
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [material, setMaterial] = useState('PLA+ PolyTerra Silk');
   const [infill, setInfill] = useState(20);
   const [selectedColor, setSelectedColor] = useState('#F59E0B');
@@ -38,13 +39,31 @@ export default function CustomPrintPage() {
     }
   };
 
-  const handleFileSelected = (file) => {
-    setUploadedFile({
+  const handleFileSelected = async (file) => {
+    const fileInfo = {
       name: file.name,
       size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-      type: file.name.split('.').pop().toUpperCase()
-    });
+      type: file.name.split('.').pop().toUpperCase(),
+      fileUrl: null
+    };
+    setUploadedFile(fileInfo);
     addToast(`Analyzed ${file.name} — Mesh geometry watertight!`, 'success');
+
+    if (uploadStorageFile) {
+      setIsUploading(true);
+      try {
+        const uploadRes = await uploadStorageFile(file, 'custom-cad');
+        if (uploadRes && (uploadRes.url || uploadRes.fileUrl)) {
+          const finalUrl = uploadRes.url || uploadRes.fileUrl;
+          setUploadedFile(prev => ({ ...prev, fileUrl: finalUrl }));
+          addToast('CAD model securely uploaded to Render cloud storage!', 'success');
+        }
+      } catch (err) {
+        console.log('Local model preserved, cloud sync deferred:', err.message);
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   const handleAddCustomToCart = (e) => {
@@ -110,16 +129,28 @@ export default function CustomPrintPage() {
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-slate-800">
-                {uploadedFile ? uploadedFile.name : 'Drag and drop your 3D model here'}
-              </h3>
+              <div className="flex items-center justify-center space-x-2">
+                <h3 className="text-base font-bold text-slate-800">
+                  {uploadedFile ? uploadedFile.name : 'Drag and drop your 3D model here'}
+                </h3>
+                {isUploading && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 animate-pulse">
+                    Uploading to Render Cloud...
+                  </span>
+                )}
+                {uploadedFile?.fileUrl && !isUploading && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Synced to Cloud
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 Supports .STL, .OBJ, .3MF, .STEP (Max file size: 100 MB)
               </p>
             </div>
 
             <label className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-md cursor-pointer transition-all">
-              <span>Browse Computer Files</span>
+              <span>{isUploading ? 'Uploading...' : 'Browse Computer Files'}</span>
               <input
                 type="file"
                 accept=".stl,.obj,.3mf,.step"

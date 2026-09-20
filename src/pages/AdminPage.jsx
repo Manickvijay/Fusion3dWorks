@@ -39,6 +39,8 @@ import { useShop } from '../context/ShopContext';
 
 export default function AdminPage() {
   const {
+    currentUser,
+    setIsLoginModalOpen,
     products,
     addProduct,
     updateProduct,
@@ -324,6 +326,35 @@ export default function AdminPage() {
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const activePrintersCount = (printers || []).filter(p => p.status === 'Printing').length;
 
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-6">
+        <div className="w-16 h-16 mx-auto rounded-3xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 shadow-xl shadow-orange-100">
+          <Printer className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 font-extrabold text-[11px] uppercase tracking-wider">
+            Restricted Admin Area
+          </span>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Administrator Authentication Required
+          </h1>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
+            The 3D Print Farm Fleet, queue allocation, printer firmware controls, and user administration are restricted to authorized administrators.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setIsLoginModalOpen(true)}
+            className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-2xl shadow-lg shadow-orange-600/25 inline-flex items-center space-x-2 transition-all cursor-pointer text-xs"
+          >
+            <span>Sign In with Administrator Account</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
       
@@ -334,7 +365,7 @@ export default function AdminPage() {
             <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-extrabold text-[10px] uppercase tracking-wider border border-orange-400/30">
               Admin Farm Control Center
             </span>
-            <span className="text-slate-400 text-xs">• Chief Engineer Marcus</span>
+            <span className="text-slate-400 text-xs">• {currentUser?.name || 'Farm Administrator'}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1">
             3D Print Farm Fleet & Production Queue

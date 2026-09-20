@@ -1,33 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_PRODUCTS } from '../data/products';
+import api, { API_BASE_URL } from '../services/api';
 
 const ShopContext = createContext();
-
-// Pre-configured mock accounts for effortless testing
-export const DEMO_USERS = {
-  customer: {
-    id: 'USR-101',
-    name: 'Alex Rivera',
-    email: 'user@gmail.com',
-    role: 'customer',
-    phone: '+1 (555) 438-9021',
-    address: '742 Evergreen Terrace, Springfield, OR 97477',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-    memberSince: 'Member since Jan 2026',
-    favoriteColor: 'Silk Gold'
-  },
-  admin: {
-    id: 'ADM-201',
-    name: 'Chief Maker David',
-    email: 'admin@gmail.com',
-    role: 'admin',
-    phone: '+1 (800) 555-F3D',
-    address: 'Fusion3D Central Print Lab & Prototyping Hub, San Francisco, CA',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-    memberSince: 'Platform Lead Architect',
-    favoriteColor: 'Cyber Cyan'
-  }
-};
 
 export const INITIAL_REGISTERED_USERS = [
   {
@@ -295,9 +270,9 @@ export function ShopProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('fusion3d_user');
-      return saved ? JSON.parse(saved) : DEMO_USERS.customer;
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      return DEMO_USERS.customer;
+      return null;
     }
   });
 
@@ -389,6 +364,19 @@ export function ShopProvider({ children }) {
   // Toasts
   const [toasts, setToasts] = useState([]);
 
+  // Toast Helper
+  const addToast = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3200);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   // Quick View Modal
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
@@ -411,6 +399,76 @@ export function ShopProvider({ children }) {
       return [];
     }
   });
+
+  // Backend Connectivity & Live Synchronization
+  const [backendStatus, setBackendStatus] = useState('checking'); // 'checking' | 'connected' | 'sleeping' | 'offline'
+  const [isBackendSyncing, setIsBackendSyncing] = useState(false);
+
+  // Sync data from Render Spring Boot backend
+  const syncWithBackend = useCallback(async (notify = false) => {
+    setIsBackendSyncing(true);
+    try {
+      await api.health.check();
+      setBackendStatus('connected');
+
+      // Fetch live data from Render backend in parallel
+      const [prodRes, orderRes, printerRes, usersRes, inqRes] = await Promise.allSettled([
+        api.products.getAll(),
+        api.orders.getAll(),
+        api.printers.getAll(),
+        api.auth.getUsers(),
+        api.inquiries.getAll(),
+      ]);
+
+      if (prodRes.status === 'fulfilled' && Array.isArray(prodRes.value) && prodRes.value.length > 0) {
+        setProducts(prodRes.value);
+      }
+      if (orderRes.status === 'fulfilled' && Array.isArray(orderRes.value) && orderRes.value.length > 0) {
+        setOrders(orderRes.value);
+      }
+      if (printerRes.status === 'fulfilled' && Array.isArray(printerRes.value) && printerRes.value.length > 0) {
+        setPrinters(printerRes.value);
+      }
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) && usersRes.value.length > 0) {
+        setRegisteredUsers(usersRes.value);
+      }
+      if (inqRes.status === 'fulfilled' && Array.isArray(inqRes.value) && inqRes.value.length > 0) {
+        setCustomInquiries(inqRes.value);
+      }
+
+      if (notify) {
+        addToast('Synced live data with Render backend!', 'success');
+      }
+    } catch (err) {
+      console.log('Backend not currently reachable (Render cold start or building):', err.message);
+      setBackendStatus('sleeping');
+    } finally {
+      setIsBackendSyncing(false);
+    }
+  }, [addToast]);
+
+  // Initial Sync & Background Polling for Render Spinup
+  useEffect(() => {
+    let active = true;
+    const runInitialSync = async () => {
+      if (active) {
+        await syncWithBackend();
+      }
+    };
+    runInitialSync();
+
+    // Check periodically until Render container responds
+    const timer = setInterval(() => {
+      if (active) {
+        syncWithBackend();
+      }
+    }, 25000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [syncWithBackend]);
 
   // Persist State to LocalStorage
   useEffect(() => {
@@ -481,65 +539,114 @@ export function ShopProvider({ children }) {
     }
   }, [printers]);
 
-  // Toast Helper
-  const addToast = (message, type = 'success') => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3200);
-  };
-
-  const removeToast = (id) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
-  // Auth Operations
-  const login = (email, password) => {
+  // Auth Operations (Live Render PostgreSQL Backend Authentication & Registration)
+  const login = async (email, password) => {
     const cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail === 'admin@gmail.com' && password === 'Pass1234') {
-      setCurrentUser(DEMO_USERS.admin);
-      addToast('Logged in as Platform Administrator (Marcus)', 'info');
-      setIsLoginModalOpen(false);
-      return { success: true, role: 'admin' };
-    } else if (cleanEmail === 'user@gmail.com' && password === 'Pass1234') {
-      setCurrentUser(DEMO_USERS.customer);
-      addToast('Welcome back, Alex Rivera!', 'success');
-      setIsLoginModalOpen(false);
-      return { success: true, role: 'customer' };
-    } else if (cleanEmail.includes('@') && password.length >= 4) {
-      // Allow custom login as customer
-      const customUser = {
-        id: `USR-${Date.now().toString().slice(-4)}`,
-        name: email.split('@')[0],
+    try {
+      const res = await api.auth.login(cleanEmail, password);
+      if (res && res.success && res.user) {
+        const userObj = {
+          id: res.user.id || `USR-${Date.now().toString().slice(-4)}`,
+          name: res.user.name || cleanEmail.split('@')[0],
+          email: res.user.email || cleanEmail,
+          role: (res.user.role || res.role || 'customer').toLowerCase(),
+          phone: res.user.phone || '',
+          address: res.user.address || '',
+          avatar: res.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(res.user.name || cleanEmail)}`,
+          registeredDate: res.user.registeredDate || new Date().toISOString().split('T')[0],
+          memberSince: res.user.memberSince || 'Active Member',
+          favoriteColor: res.user.favoriteColor || 'Silk Gold',
+          status: res.user.status || 'Active'
+        };
+        setCurrentUser(userObj);
+        localStorage.setItem('fusion3d_user', JSON.stringify(userObj));
+        addToast(`Welcome back, ${userObj.name}!`, 'success');
+        setIsLoginModalOpen(false);
+        return { success: true, role: userObj.role, user: userObj };
+      } else {
+        const msg = res?.message || 'Invalid email or password.';
+        return { success: false, message: msg };
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      const msg = err.message || 'Login failed. Please check your credentials or network.';
+      return { success: false, message: msg };
+    }
+  };
+
+  // Live User Registration directly to Render PostgreSQL
+  const register = async ({ name, email, password, phone = '', role = 'customer', address = '' }) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = (name || '').trim();
+    const cleanRole = (role || 'customer').toLowerCase();
+
+    try {
+      const payload = {
+        name: cleanName,
         email: cleanEmail,
-        role: 'customer',
-        phone: '+1 (555) 000-0000',
-        address: 'Default Shipping Address, USA',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-        memberSince: 'Joined Today'
+        password: password,
+        phone: (phone || '').trim(),
+        role: cleanRole,
+        address: (address || '').trim(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanName || cleanEmail)}`,
+        status: cleanRole === 'admin' ? 'Active (Staff)' : 'Active',
+        registeredDate: new Date().toISOString().split('T')[0],
+        memberSince: `Member since ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
       };
-      setCurrentUser(customUser);
-      addToast(`Welcome to Fusion3D Works, ${customUser.name}!`, 'success');
-      setIsLoginModalOpen(false);
-      return { success: true, role: 'customer' };
-    } else {
-      return { success: false, message: 'Invalid credentials. Please use demo logins shown above.' };
+
+      const created = await api.auth.register(payload);
+      if (created && (created.email || created.id)) {
+        const userObj = {
+          id: created.id || `USR-${Date.now().toString().slice(-4)}`,
+          name: created.name || cleanName,
+          email: created.email || cleanEmail,
+          role: (created.role || cleanRole).toLowerCase(),
+          phone: created.phone || payload.phone,
+          address: created.address || payload.address,
+          avatar: created.avatar || payload.avatar,
+          registeredDate: created.registeredDate || payload.registeredDate,
+          memberSince: created.memberSince || payload.memberSince,
+          favoriteColor: created.favoriteColor || 'Silk Gold',
+          status: created.status || payload.status
+        };
+
+        setCurrentUser(userObj);
+        localStorage.setItem('fusion3d_user', JSON.stringify(userObj));
+        setRegisteredUsers(prev => [userObj, ...prev.filter(u => u.email !== userObj.email)]);
+        addToast(`Account created successfully! Welcome to Fusion3D, ${userObj.name}.`, 'success');
+        setIsLoginModalOpen(false);
+        return { success: true, user: userObj };
+      }
+      return { success: false, message: 'Registration could not be completed.' };
+    } catch (err) {
+      console.error('Registration error:', err);
+      const msg = err.message || 'Registration failed. Please check your credentials.';
+      return { success: false, message: msg };
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
-    addToast('You have been logged out.', 'info');
+    localStorage.removeItem('fusion3d_user');
+    addToast('You have been signed out.', 'info');
   };
 
-  const switchRole = (targetRole) => {
-    if (targetRole === 'admin') {
-      setCurrentUser(DEMO_USERS.admin);
-      addToast('Switched to Admin Mode (Full print queue control)', 'info');
-    } else {
-      setCurrentUser(DEMO_USERS.customer);
-      addToast('Switched to Customer Mode (Alex Rivera)', 'info');
+  const updateUserProfile = async (updatedFields) => {
+    if (!currentUser) return { success: false, message: 'Not signed in' };
+    try {
+      const merged = { ...currentUser, ...updatedFields };
+      setCurrentUser(merged);
+      localStorage.setItem('fusion3d_user', JSON.stringify(merged));
+
+      if (currentUser.id) {
+        await api.auth.updateUser(currentUser.id, updatedFields);
+      }
+      addToast('Profile updated successfully!', 'success');
+      return { success: true, user: merged };
+    } catch (err) {
+      console.error('Update profile error:', err);
+      addToast('Profile saved locally.', 'info');
+      return { success: true };
     }
   };
 
@@ -667,9 +774,9 @@ export function ShopProvider({ children }) {
       date: new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       createdAt: Date.now(), // timestamp for 30m cancel window
-      customerName: orderData.shippingAddress?.fullName || currentUser?.name || 'Valued Maker',
-      customerEmail: currentUser?.email || 'user@gmail.com',
-      customerPhone: orderData.shippingAddress?.phone || currentUser?.phone || '+1 (555) 438-9021',
+      customerName: orderData.shippingAddress?.fullName || currentUser?.name || 'Customer',
+      customerEmail: currentUser?.email || orderData.shippingAddress?.email || orderData.customerEmail || 'customer@fusion3dworks.com',
+      customerPhone: orderData.shippingAddress?.phone || currentUser?.phone || '',
       items: orderData.items || cart,
       subtotal: orderData.subtotal,
       shippingFee: orderData.shippingFee || 0,
@@ -693,7 +800,19 @@ export function ShopProvider({ children }) {
 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
-    addToast(`Order ${orderId} placed! It is in review with our 3D design team.`, 'success');
+    addToast(`Order ${orderId} placed! Recorded in 3D production pipeline.`, 'success');
+
+    // Asynchronously sync with Render backend
+    api.orders.create(newOrder)
+      .then(created => {
+        if (created && created.id) {
+          setOrders(prev => prev.map(o => o.id === orderId ? created : o));
+        }
+      })
+      .catch(err => {
+        console.log('Order created locally, backend queued:', err.message);
+      });
+
     return newOrder;
   };
 
@@ -717,6 +836,7 @@ export function ShopProvider({ children }) {
       return order;
     }));
     addToast(`Order #${orderId} has been cancelled.`, 'info');
+    api.orders.cancel(orderId, reason).catch(err => console.log('Cancel order sync:', err.message));
   };
 
   // Update order status with 10-step pipeline & extra assets (Admin)
@@ -775,6 +895,9 @@ export function ShopProvider({ children }) {
     }
 
     addToast(`Order ${orderId} updated to "${newStatus}"`, 'info');
+
+    api.orders.updateStatus(orderId, { newStatus, ...extraData })
+      .catch(err => console.log('Admin order status sync:', err.message));
   };
 
   // Backwards compatible status updater
@@ -789,6 +912,7 @@ export function ShopProvider({ children }) {
       designProof: { approved: true }
     });
     addToast('3D Design proof confirmed! Your order is now ready for 3D printing.', 'success');
+    api.orders.approveProof(orderId).catch(err => console.log('Approve proof sync:', err.message));
   };
 
   // Customer requests design changes
@@ -813,6 +937,7 @@ export function ShopProvider({ children }) {
       return order;
     }));
     addToast('Change request submitted to our 3D design engineer.', 'info');
+    api.orders.requestProofChanges(orderId, changesNote).catch(err => console.log('Proof changes sync:', err.message));
   };
 
   // Assign Order to Printer based on Print Time / Schedule
@@ -841,26 +966,36 @@ export function ShopProvider({ children }) {
     }));
 
     addToast(`Assigned Order ${orderId} to machine: ${targetPrinter.name}`, 'success');
+    api.orders.assignPrinter(orderId, { printerId, timeShift }).catch(err => console.log('Assign printer sync:', err.message));
   };
 
   // Products CRUD & Discount Management (Admin)
   const addProduct = (newProduct) => {
-    const id = `prod-${Date.now()}`;
+    const id = newProduct.id || `prod-${Date.now()}`;
     const productWithDefaults = {
       ...newProduct,
       id,
       rating: 5.0,
       reviewsCount: 0,
-      badge: 'New Arrival',
+      badge: newProduct.badge || 'New Arrival',
       gallery: newProduct.gallery && newProduct.gallery.length > 0 ? newProduct.gallery : [newProduct.image]
     };
     setProducts(prev => [productWithDefaults, ...prev]);
     addToast(`Created 3D product: "${newProduct.name}"!`, 'success');
+
+    api.products.create(productWithDefaults)
+      .then(created => {
+        if (created?.id) {
+          setProducts(prev => prev.map(p => p.id === id ? created : p));
+        }
+      })
+      .catch(err => console.log('Create product sync:', err.message));
   };
 
   const updateProduct = (id, updatedFields) => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedFields } : p));
     addToast('Product specifications updated successfully', 'success');
+    api.products.update(id, updatedFields).catch(err => console.log('Update product sync:', err.message));
   };
 
   const updateProductWithDiscount = (productId, updateData) => {
@@ -888,13 +1023,15 @@ export function ShopProvider({ children }) {
       return p;
     }));
     addToast('Product specifications & discount applied successfully!', 'success');
+    api.products.applyDiscount(productId, updateData).catch(err => console.log('Discount sync:', err.message));
   };
 
   // Add more colors to product customizable section
   const addColorToProduct = (productId, sectionId, newColor) => {
+    let updatedProduct = null;
     setProducts(prev => prev.map(p => {
       if (p.id === productId && p.customizableSections) {
-        return {
+        updatedProduct = {
           ...p,
           customizableSections: p.customizableSections.map(sec => {
             if (sec.id === sectionId || (!sectionId && sec.options)) {
@@ -906,15 +1043,20 @@ export function ShopProvider({ children }) {
             return sec;
           })
         };
+        return updatedProduct;
       }
       return p;
     }));
     addToast(`Added new color "${newColor.name}" (${newColor.hex})!`, 'success');
+    if (updatedProduct) {
+      api.products.update(productId, updatedProduct).catch(err => console.log('Color update sync:', err.message));
+    }
   };
 
   const deleteProduct = (id) => {
     setProducts(prev => prev.filter(p => p.id !== id));
     addToast('Product removed from catalog', 'info');
+    api.products.delete(id).catch(err => console.log('Delete product sync:', err.message));
   };
 
   // Submit verified product rating & review
@@ -950,6 +1092,13 @@ export function ShopProvider({ children }) {
     }
 
     addToast('Thank you for rating and reviewing your 3D printed item!', 'success');
+
+    api.products.submitReview(productId, {
+      rating: Number(rating),
+      comment,
+      author: reviewerName,
+      images: Array.isArray(userImages) ? userImages : []
+    }).catch(err => console.log('Review sync:', err.message));
   };
 
   // Submit custom inquiry / "Ask Details"
@@ -962,12 +1111,19 @@ export function ShopProvider({ children }) {
     };
     setCustomInquiries(prev => [newInquiry, ...prev]);
     addToast('Custom specifications inquiry submitted to our 3D design team!', 'success');
+    api.inquiries.create(newInquiry).catch(err => console.log('Inquiry sync:', err.message));
     return newInquiry;
   };
 
   // 3D Printer Work List / Farm Controls (Admin)
   const updatePrinterStatus = (printerId, statusUpdates) => {
     setPrinters(prev => prev.map(p => p.id === printerId ? { ...p, ...statusUpdates } : p));
+    api.printers.updateStatus(printerId, statusUpdates).catch(err => console.log('Printer update sync:', err.message));
+  };
+
+  // S3 Cloud CAD/Asset Uploader
+  const uploadStorageFile = async (file, folder = 'models') => {
+    return api.storage.upload(file, folder);
   };
 
   // Cart Calculations
@@ -981,8 +1137,9 @@ export function ShopProvider({ children }) {
         // Auth
         currentUser,
         login,
+        register,
         logout,
-        switchRole,
+        updateUserProfile,
         isLoginModalOpen,
         setIsLoginModalOpen,
 
@@ -1041,7 +1198,14 @@ export function ShopProvider({ children }) {
         addToast,
         removeToast,
         quickViewProduct,
-        setQuickViewProduct
+        setQuickViewProduct,
+
+        // Live Render Backend Connectivity
+        backendStatus,
+        isBackendSyncing,
+        syncWithBackend,
+        backendUrl: API_BASE_URL,
+        uploadStorageFile
       }}
     >
       {children}

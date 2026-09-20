@@ -295,4 +295,18 @@ public class Product {
     public void setReviews(List<ProductReview> reviews) {
         this.reviews = reviews;
     }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("customizableSections")
+    @Transient
+    public Object getCustomizableSections() {
+        if (customizableSectionsJson == null || customizableSectionsJson.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return mapper.readValue(customizableSectionsJson, Object.class);
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
 }

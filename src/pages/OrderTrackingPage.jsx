@@ -17,7 +17,7 @@ export default function OrderTrackingPage() {
   const queryOrderId = searchParams.get('orderId');
   const { orders, customerApproveDesign, customerRequestDesignChanges, cancelOrder } = useShop();
 
-  const [inputOrderId, setInputOrderId] = useState(queryOrderId || (orders && orders[0]?.id) || 'ORD-8821');
+  const [inputOrderId, setInputOrderId] = useState(queryOrderId || (orders && orders[0]?.id) || '');
   const [selectedOrderId, setSelectedOrderId] = useState(queryOrderId || null);
   const [cancellingOrder, setCancellingOrder] = useState(null);
 

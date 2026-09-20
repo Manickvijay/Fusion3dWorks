@@ -342,4 +342,29 @@ public class Order {
     public void setTimeline(List<OrderTimelineStep> timeline) {
         this.timeline = timeline;
     }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("designProof")
+    @Transient
+    public java.util.Map<String, Object> getDesignProof() {
+        java.util.Map<String, Object> proof = new java.util.HashMap<>();
+        proof.put("image", designProofImage);
+        proof.put("modelType", designProofModelType != null ? designProofModelType : "keychain");
+        proof.put("approved", designProofApproved);
+        proof.put("notes", designProofNotes);
+        proof.put("userFeedback", designProofUserFeedback);
+        return proof;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("shippingAddressDetails")
+    @Transient
+    public java.util.Map<String, Object> getShippingAddressDetails() {
+        java.util.Map<String, Object> addr = new java.util.HashMap<>();
+        addr.put("fullName", shippingFullName);
+        addr.put("address", shippingAddress);
+        addr.put("city", shippingCity);
+        addr.put("state", shippingState);
+        addr.put("zip", shippingZip);
+        addr.put("phone", shippingPhone);
+        return addr;
+    }
 }
