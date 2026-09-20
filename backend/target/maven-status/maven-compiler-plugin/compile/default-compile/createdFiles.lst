@@ -16,6 +16,7 @@ com/fusion3d/service/S3StorageService.class
 com/fusion3d/dto/FileUploadResponse.class
 com/fusion3d/model/Order.class
 com/fusion3d/config/S3Config.class
+com/fusion3d/controller/HealthController.class
 com/fusion3d/dto/OrderItemDto.class
 com/fusion3d/model/Product.class
 com/fusion3d/service/AuthService.class

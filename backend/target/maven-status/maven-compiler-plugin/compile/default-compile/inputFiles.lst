@@ -26,6 +26,7 @@
 /app/applet/backend/src/main/java/com/fusion3d/model/OrderTimelineStep.java
 /app/applet/backend/src/main/java/com/fusion3d/repository/PrinterRepository.java
 /app/applet/backend/src/main/java/com/fusion3d/service/PrinterService.java
+/app/applet/backend/src/main/java/com/fusion3d/controller/HealthController.java
 /app/applet/backend/src/main/java/com/fusion3d/dto/OrderItemDto.java
 /app/applet/backend/src/main/java/com/fusion3d/config/DataInitializer.java
 /app/applet/backend/src/main/java/com/fusion3d/controller/AuthController.java

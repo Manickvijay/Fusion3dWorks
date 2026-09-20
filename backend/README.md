@@ -106,7 +106,7 @@ Robust, enterprise-grade Java Spring Boot REST API for the **Fusion3D Works** 3D
 
 ## 🏃‍♂️ Running the Backend
 
-### Build and Run
+### Build and Run Locally
 ```bash
 cd backend
 mvn clean package -DskipTests
@@ -118,3 +118,58 @@ mvn spring-boot:run
 cd backend
 mvn test
 ```
+
+---
+
+## 🐳 Docker Container
+
+The backend includes a multi-stage `Dockerfile` that automatically runs tests, builds the JAR, and produces a lightweight, hardened JRE container (~160MB).
+
+### Build Docker Image
+```bash
+cd backend
+docker build -t fusion3d-backend:latest .
+```
+
+### Run Docker Container
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  --name fusion3d-backend \
+  fusion3d-backend:latest
+```
+
+Verify container health:
+```bash
+curl http://localhost:8080/api/health
+```
+
+---
+
+## 🚀 Deploying to Render
+
+You can deploy the backend to Render as a **Web Service**:
+
+1. **Create New Web Service on Render**:
+   - Link your GitHub / GitLab repository.
+2. **Configure Service Settings**:
+   - **Name**: `fusion3d-backend`
+   - **Root Directory**: `backend` *(Crucial: sets build context to the backend folder)*
+   - **Environment**: `Docker`
+   - **Region**: Select closest to your database (e.g. `Ohio (US East)` matches your Neon `us-east-2` DB)
+   - **Dockerfile Path**: `./Dockerfile` (or `Dockerfile`)
+3. **Configure Health Check Path**:
+   - Set **Health Check Path** in Render to `/api/health`
+4. **Environment Variables**:
+   Spring Boot will automatically bind to Render's dynamic `$PORT`. You can optionally override any database or S3 credentials in Render's Environment Variables tab:
+   - `PORT`: (Render injects this automatically)
+   - `DB_URL`: `jdbc:postgresql://ep-long-cherry-b5kgya9a-pooler.c-7.us-east-2.aws.neon.tech:5432/Fusion3d_works%20?sslmode=require`
+   - `DB_USERNAME`: `neondb_owner`
+   - `DB_PASSWORD`: `npg_5Lhyq1VbBcSx`
+   - `AWS_ENDPOINT_URL_S3`: `https://br-blue-bar-b5l8v16s.storage.c-7.us-east-2.aws.neon.tech`
+   - `AWS_ACCESS_KEY_ID`: `nak_live_cdefb232a9154f1b805e86ac566b242f`
+   - `AWS_SECRET_ACCESS_KEY`: `nsk_live_3573202a8c89ff3bf08cb65bcfb75bd3b1e8edd196d0e0ceae0628e0e29e345c`
+   - `AWS_REGION`: `us-east-2`
+   - `S3_BUCKET_NAME`: `fusion3d-storage`
+
