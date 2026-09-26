@@ -14,7 +14,10 @@ import {
   Box,
   X,
   LogIn,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Lock,
+  Key
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import CancelOrderModal from '../components/common/CancelOrderModal';
@@ -33,8 +36,19 @@ export default function ProfilePage() {
     customerApproveDesign,
     customerRequestDesignChanges,
     setIsLoginModalOpen,
-    updateUserProfile
+    updateUserProfile,
+    changePassword,
+    authToken
   } = useShop();
+
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Active user's profile state
   const [profileData, setProfileData] = useState(() => ({
@@ -186,6 +200,18 @@ export default function ProfilePage() {
         >
           <Heart className="w-4 h-4" />
           <span>Saved Wishlist ({savedProducts.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('security')}
+          className={`px-4 py-2.5 rounded-2xl transition-all flex items-center space-x-2 cursor-pointer ${
+            activeTab === 'security'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Security & Password</span>
         </button>
       </div>
 
@@ -551,6 +577,143 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab 4: Security & Authentication */}
+      {activeTab === 'security' && (
+        <div className="max-w-2xl space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+            <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Account Security & Credentials</h3>
+                <p className="text-xs text-slate-500">
+                  Update your authentication credentials and monitor cryptographic session security.
+                </p>
+              </div>
+            </div>
+
+            {/* Session Security Overview */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Session Status:</span>
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Active & Authenticated
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Access Role:</span>
+                <span className="font-mono font-bold uppercase text-slate-800">{currentUser?.role || 'customer'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Token Protection:</span>
+                <span className="font-mono text-[11px] text-slate-600">
+                  {authToken ? 'HMAC-SHA256 Signed' : 'Local Session'}
+                </span>
+              </div>
+            </div>
+
+            {/* Change Password Form */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setPasswordError('');
+                setPasswordSuccess('');
+
+                if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                  setPasswordError('New password and confirmation do not match.');
+                  return;
+                }
+                if (passwordForm.newPassword.length < 4) {
+                  setPasswordError('New password must be at least 4 characters.');
+                  return;
+                }
+
+                setIsUpdatingPassword(true);
+                const res = await changePassword(passwordForm.oldPassword, passwordForm.newPassword);
+                setIsUpdatingPassword(false);
+
+                if (res?.success) {
+                  setPasswordSuccess('Password successfully updated!');
+                  setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+                } else {
+                  setPasswordError(res?.message || 'Failed to update password.');
+                }
+              }}
+              className="space-y-4 pt-2"
+            >
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Change Password
+              </h4>
+
+              {passwordError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs">
+                  {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={passwordForm.oldPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer flex items-center justify-center space-x-2"
+              >
+                <Key className="w-3.5 h-3.5" />
+                <span>{isUpdatingPassword ? 'Updating Password...' : 'Save New Password'}</span>
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

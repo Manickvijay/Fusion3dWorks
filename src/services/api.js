@@ -1,13 +1,24 @@
 // Central API Service for Fusion3D Works Backend Integration
 // Uses integrated Express backend on current origin by default
-export const API_BASE_URL = (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('onrender.com'))
-  ? import.meta.env.VITE_API_URL
-  : '';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('onrender.com')
+    ? import.meta.env.VITE_API_URL
+    : '';
+
+function getAuthHeader() {
+  try {
+    const token = localStorage.getItem('fusion3d_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   const headers = {
     'Content-Type': 'application/json',
+    ...getAuthHeader(),
     ...(options.headers || {}),
   };
 
@@ -118,6 +129,15 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    qaCheck: (id, data) =>
+      request(`/api/orders/${id}/qa-check`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    delete: (id) =>
+      request(`/api/orders/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   printers: {
@@ -137,6 +157,14 @@ export const api = {
       request(`/api/printers/${id}`, {
         method: 'DELETE',
       }),
+    toggleMaintenance: (id) =>
+      request(`/api/printers/${id}/maintenance`, {
+        method: 'POST',
+      }),
+    clearJob: (id) =>
+      request(`/api/printers/${id}/clear-job`, {
+        method: 'POST',
+      }),
   },
 
   auth: {
@@ -150,12 +178,22 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(userData),
       }),
+    getMe: () => request('/api/auth/me'),
+    changePassword: (oldPassword, newPassword) =>
+      request('/api/auth/change-password', {
+        method: 'PUT',
+        body: JSON.stringify({ oldPassword, newPassword }),
+      }),
     getUsers: () => request('/api/auth/users'),
     getUserById: (id) => request(`/api/auth/users/${id}`),
     updateUser: (id, userData) =>
       request(`/api/auth/users/${id}`, {
         method: 'PUT',
         body: JSON.stringify(userData),
+      }),
+    deleteUser: (id) =>
+      request(`/api/auth/users/${id}`, {
+        method: 'DELETE',
       }),
   },
 
@@ -164,10 +202,25 @@ export const api = {
       const query = customerEmail ? `?customerEmail=${encodeURIComponent(customerEmail)}` : '';
       return request(`/api/inquiries${query}`);
     },
+    getById: (id) => request(`/api/inquiries/${id}`),
     create: (data) =>
       request('/api/inquiries', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+    updateStatus: (id, status) =>
+      request(`/api/inquiries/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    reply: (id, replyData) =>
+      request(`/api/inquiries/${id}/reply`, {
+        method: 'POST',
+        body: JSON.stringify(replyData),
+      }),
+    delete: (id) =>
+      request(`/api/inquiries/${id}`, {
+        method: 'DELETE',
       }),
   },
 
@@ -178,17 +231,32 @@ export const api = {
       formData.append('file', file);
       formData.append('folder', folder);
 
+      const authHeaders = getAuthHeader();
       const response = await fetch(url, {
         method: 'POST',
+        headers: {
+          ...authHeaders,
+        },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+        let msg = `Upload failed: ${response.statusText}`;
+        try {
+          const errData = await response.json();
+          if (errData?.message) msg = errData.message;
+        } catch (_err) {
+          // Ignore if error response is not valid JSON
+        }
+        throw new Error(msg);
       }
 
       return response.json();
     },
+    delete: (fileUrl) =>
+      request(`/api/storage/delete?fileUrl=${encodeURIComponent(fileUrl)}`, {
+        method: 'DELETE',
+      }),
   },
 };
 

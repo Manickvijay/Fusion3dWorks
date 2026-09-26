@@ -276,6 +276,14 @@ export function ShopProvider({ children }) {
     }
   });
 
+  const [authToken, setAuthToken] = useState(() => {
+    try {
+      return localStorage.getItem('fusion3d_token') || null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   // Products Catalog
@@ -560,6 +568,10 @@ export function ShopProvider({ children }) {
         };
         setCurrentUser(userObj);
         localStorage.setItem('fusion3d_user', JSON.stringify(userObj));
+        if (res.token) {
+          setAuthToken(res.token);
+          localStorage.setItem('fusion3d_token', res.token);
+        }
         addToast(`Welcome back, ${userObj.name}!`, 'success');
         setIsLoginModalOpen(false);
         return { success: true, role: userObj.role, user: userObj };
@@ -612,6 +624,10 @@ export function ShopProvider({ children }) {
 
         setCurrentUser(userObj);
         localStorage.setItem('fusion3d_user', JSON.stringify(userObj));
+        if (created.token) {
+          setAuthToken(created.token);
+          localStorage.setItem('fusion3d_token', created.token);
+        }
         setRegisteredUsers(prev => [userObj, ...prev.filter(u => u.email !== userObj.email)]);
         addToast(`Account created successfully! Welcome to Fusion3D, ${userObj.name}.`, 'success');
         setIsLoginModalOpen(false);
@@ -627,8 +643,28 @@ export function ShopProvider({ children }) {
 
   const logout = () => {
     setCurrentUser(null);
+    setAuthToken(null);
     localStorage.removeItem('fusion3d_user');
+    localStorage.removeItem('fusion3d_token');
     addToast('You have been signed out.', 'info');
+  };
+
+  const changePassword = async (oldPassword, newPassword) => {
+    try {
+      await api.auth.changePassword(oldPassword, newPassword);
+      addToast('Password changed successfully!', 'success');
+      return { success: true };
+    } catch (err) {
+      const msg = err.message || 'Failed to update password.';
+      addToast(msg, 'error');
+      return { success: false, message: msg };
+    }
+  };
+
+  const deleteUser = async (userId) => {
+    setRegisteredUsers(prev => prev.filter(u => u.id !== userId));
+    addToast('User account removed.', 'info');
+    api.auth.deleteUser(userId).catch(err => console.log('Delete user sync:', err.message));
   };
 
   const updateUserProfile = async (updatedFields) => {
@@ -942,7 +978,7 @@ export function ShopProvider({ children }) {
 
   // Assign Order to Printer based on Print Time / Schedule
   const assignOrderToPrinter = (orderId, printerId, timeShift = 'Daytime Quick Turnaround') => {
-    const targetPrinter = printers.find(p => p.id === printerId);
+    const targetPrinter = printers.find(p => p.id === printerId || p.name === printerId);
     if (!targetPrinter) return;
 
     adminUpdateOrderStatus(orderId, 'Printing Started', {
@@ -952,7 +988,7 @@ export function ShopProvider({ children }) {
     });
 
     setPrinters(prev => prev.map(p => {
-      if (p.id === printerId) {
+      if (p.id === targetPrinter.id) {
         return {
           ...p,
           status: 'Printing',
@@ -966,7 +1002,7 @@ export function ShopProvider({ children }) {
     }));
 
     addToast(`Assigned Order ${orderId} to machine: ${targetPrinter.name}`, 'success');
-    api.orders.assignPrinter(orderId, { printerId, timeShift }).catch(err => console.log('Assign printer sync:', err.message));
+    api.orders.assignPrinter(orderId, { printerId: targetPrinter.id, timeShift }).catch(err => console.log('Assign printer sync:', err.message));
   };
 
   // Products CRUD & Discount Management (Admin)
@@ -1107,6 +1143,7 @@ export function ShopProvider({ children }) {
       id: `INQ-${Date.now().toString().slice(-4)}`,
       date: new Date().toISOString().split('T')[0],
       createdAt: Date.now(),
+      status: 'Pending Review',
       ...inquiry
     };
     setCustomInquiries(prev => [newInquiry, ...prev]);
@@ -1115,10 +1152,102 @@ export function ShopProvider({ children }) {
     return newInquiry;
   };
 
+  const updateInquiryStatus = (inquiryId, status) => {
+    setCustomInquiries(prev => prev.map(i => i.id === inquiryId ? { ...i, status } : i));
+    addToast(`Inquiry status updated to "${status}"`, 'info');
+    api.inquiries.updateStatus(inquiryId, status).catch(err => console.log('Inquiry status sync:', err.message));
+  };
+
+  const replyToInquiry = (inquiryId, replyData) => {
+    setCustomInquiries(prev => prev.map(i => {
+      if (i.id === inquiryId) {
+        return {
+          ...i,
+          status: 'Quoted',
+          quoteAmount: replyData.quoteAmount != null ? Number(replyData.quoteAmount) : i.quoteAmount,
+          adminReply: replyData.adminReply || replyData.notes || i.adminReply
+        };
+      }
+      return i;
+    }));
+    addToast('Quote and specifications reply saved and dispatched!', 'success');
+    api.inquiries.reply(inquiryId, replyData).catch(err => console.log('Inquiry reply sync:', err.message));
+  };
+
+  const deleteInquiry = (inquiryId) => {
+    setCustomInquiries(prev => prev.filter(i => i.id !== inquiryId));
+    addToast('Inquiry removed from queue.', 'info');
+    api.inquiries.delete(inquiryId).catch(err => console.log('Inquiry delete sync:', err.message));
+  };
+
+  // QA Check Action
+  const qaCheckOrder = (orderId, qaData = {}) => {
+    const tolerance = qaData.tolerance || '< 0.08mm (Caliper Verified)';
+    adminUpdateOrderStatus(orderId, 'QA Testing the Product', {
+      note: `QA Inspection Passed: Tolerances within ${tolerance}. Surface deburred.`
+    });
+    api.orders.qaCheck(orderId, { pass: true, tolerance, notes: qaData.notes }).catch(err => console.log('QA check sync:', err.message));
+  };
+
+  // Order Deletion / Archival
+  const deleteOrder = (orderId) => {
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+    addToast(`Order ${orderId} removed.`, 'info');
+    api.orders.delete(orderId).catch(err => console.log('Delete order sync:', err.message));
+  };
+
   // 3D Printer Work List / Farm Controls (Admin)
   const updatePrinterStatus = (printerId, statusUpdates) => {
-    setPrinters(prev => prev.map(p => p.id === printerId ? { ...p, ...statusUpdates } : p));
-    api.printers.updateStatus(printerId, statusUpdates).catch(err => console.log('Printer update sync:', err.message));
+    const updates = typeof statusUpdates === 'string' ? { status: statusUpdates } : statusUpdates;
+    setPrinters(prev => prev.map(p => {
+      if (p.id === printerId) {
+        const updated = { ...p, ...updates };
+        if (updates.status === 'Idle') {
+          updated.currentJobId = null;
+          updated.currentJobName = null;
+          updated.percentage = 0;
+          updated.timeLeft = '--';
+        }
+        return updated;
+      }
+      return p;
+    }));
+    api.printers.updateStatus(printerId, updates).catch(err => console.log('Printer update sync:', err.message));
+  };
+
+  const togglePrinterMaintenance = (printerId) => {
+    setPrinters(prev => prev.map(p => {
+      if (p.id === printerId) {
+        const isMaint = p.status === 'Maintenance' || p.status === 'Calibrating';
+        return {
+          ...p,
+          status: isMaint ? 'Idle' : 'Maintenance',
+          currentJobId: isMaint ? null : p.currentJobId,
+          percentage: isMaint ? 0 : p.percentage
+        };
+      }
+      return p;
+    }));
+    addToast('Machine maintenance status toggled.', 'info');
+    api.printers.toggleMaintenance(printerId).catch(err => console.log('Maintenance sync:', err.message));
+  };
+
+  const clearPrinterJob = (printerId) => {
+    setPrinters(prev => prev.map(p => {
+      if (p.id === printerId) {
+        return {
+          ...p,
+          status: 'Idle',
+          currentJobId: null,
+          currentJobName: null,
+          percentage: 0,
+          timeLeft: '--'
+        };
+      }
+      return p;
+    }));
+    addToast('Printer job cleared and marked Idle.', 'success');
+    api.printers.clearJob(printerId).catch(err => console.log('Clear job sync:', err.message));
   };
 
   // S3 Cloud CAD/Asset Uploader
@@ -1136,10 +1265,13 @@ export function ShopProvider({ children }) {
       value={{
         // Auth
         currentUser,
+        authToken,
         login,
         register,
         logout,
         updateUserProfile,
+        changePassword,
+        deleteUser,
         isLoginModalOpen,
         setIsLoginModalOpen,
 
@@ -1171,14 +1303,18 @@ export function ShopProvider({ children }) {
         updateOrderStatus,
         adminUpdateOrderStatus,
         cancelOrder,
+        deleteOrder,
         customerApproveDesign,
         customerRequestDesignChanges,
         assignOrderToPrinter,
+        qaCheckOrder,
         ORDER_STAGES,
 
         // 3D Printers
         printers,
         updatePrinterStatus,
+        togglePrinterMaintenance,
+        clearPrinterJob,
 
         // Admin & Management
         registeredUsers,
@@ -1188,6 +1324,9 @@ export function ShopProvider({ children }) {
         submitProductReview,
         customInquiries,
         submitCustomRequest,
+        updateInquiryStatus,
+        replyToInquiry,
+        deleteInquiry,
 
         // Flying Animation
         flyingItem,

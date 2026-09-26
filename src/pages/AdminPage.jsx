@@ -48,19 +48,31 @@ export default function AdminPage() {
     orders,
     adminUpdateOrderStatus,
     assignOrderToPrinter,
+    qaCheckOrder,
+    deleteOrder,
     printers,
-    updatePrinterStatus,
+    updatePrinterStatus: _updatePrinterStatus,
+    togglePrinterMaintenance,
+    clearPrinterJob,
     registeredUsers,
-    setRegisteredUsers,
+    deleteUser,
     updateProductWithDiscount,
     addColorToProduct,
     customInquiries,
+    updateInquiryStatus,
+    replyToInquiry,
+    deleteInquiry,
     ORDER_STAGES,
     addToast
   } = useShop();
 
   // Admin opens directly to the 3D printing list (explicit requirement: "Admin only need to see the 3d printing list")
   const [activeTab, setActiveTab] = useState('worklist'); // 'worklist' | 'products' | 'users' | 'inquiries' | 'dashboard'
+
+  // Inquiry Quote/Reply Modal State
+  const [replyingInquiry, setReplyingInquiry] = useState(null);
+  const [inquiryQuoteAmount, setInquiryQuoteAmount] = useState('');
+  const [inquiryAdminReply, setInquiryAdminReply] = useState('');
 
   // Print Queue Sorting Mode: "manage give orders base on the time"
   const [queueSortMode, setQueueSortMode] = useState('short-first'); // 'short-first' (Daytime) | 'long-first' (Nighttime) | 'all'
@@ -545,13 +557,21 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* Toggle Status Action */}
-                  <div className="pt-1 flex items-center justify-between gap-1">
+                  {/* Toggle Status Actions */}
+                  <div className="pt-1 grid grid-cols-2 gap-1.5">
                     <button
-                      onClick={() => updatePrinterStatus(printer.id, printer.status === 'Printing' ? 'Idle' : 'Printing')}
-                      className="w-full py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-[10px] font-bold transition-colors cursor-pointer text-center"
+                      onClick={() => togglePrinterMaintenance(printer.id)}
+                      className="py-1 px-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[9px] font-bold transition-colors cursor-pointer text-center truncate"
+                      title="Toggle calibration & maintenance mode"
                     >
-                      Toggle {printer.status === 'Printing' ? 'to Idle' : 'to Printing'}
+                      {printer.status === 'Maintenance' ? 'Exit Maint.' : 'Calibrate'}
+                    </button>
+                    <button
+                      onClick={() => clearPrinterJob(printer.id)}
+                      className="py-1 px-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-[9px] font-bold transition-colors cursor-pointer text-center truncate"
+                      title="Clear completed job and reset to Idle"
+                    >
+                      Clear / Idle
                     </button>
                   </div>
                 </div>
@@ -661,16 +681,20 @@ export default function AdminPage() {
                       {/* Machine Assignment Dropdown */}
                       <td className="py-3 px-3">
                         <select
-                          value={job.assignedPrinter}
-                          onChange={(e) => assignOrderToPrinter(job.orderId, e.target.value)}
+                          value={printers.find(p => p.name === job.assignedPrinter)?.id || (job.assignedPrinter !== 'Unassigned' ? job.assignedPrinter : '')}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              assignOrderToPrinter(job.orderId, e.target.value);
+                            }
+                          }}
                           className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-800"
                         >
-                          <option value="Unassigned">Unassigned</option>
-                          <option value="Bambu Lab A1 (AMS Lite)">Bambu Lab A1 (AMS Lite)</option>
-                          <option value="Bambu Lab X1-Carbon #1">Bambu Lab X1-Carbon #1</option>
-                          <option value="Bambu Lab X1-Carbon #2">Bambu Lab X1-Carbon #2</option>
-                          <option value="Prusa MK4 Farm Unit #1">Prusa MK4 Farm Unit #1</option>
-                          <option value="Formlabs Form 3+ (SLA UV Resin)">Formlabs Form 3+ (Resin)</option>
+                          <option value="">Unassigned</option>
+                          {printers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.status})
+                            </option>
+                          ))}
                         </select>
                       </td>
 
@@ -682,8 +706,8 @@ export default function AdminPage() {
                           className="px-2 py-1 bg-indigo-50/70 border border-indigo-200 rounded-lg text-[11px] font-bold text-indigo-900 max-w-[180px] truncate"
                         >
                           {ORDER_STAGES.map((st) => (
-                            <option key={st.id} value={st.name}>
-                              {st.id}. {st.name}
+                            <option key={st.id} value={st.id}>
+                              {st.id}
                             </option>
                           ))}
                         </select>
@@ -693,19 +717,33 @@ export default function AdminPage() {
                       <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
                         <button
                           onClick={() => {
-                            assignOrderToPrinter(job.orderId, 'Bambu Lab A1 (AMS Lite)');
-                            adminUpdateOrderStatus(job.orderId, '3D Printing in Progress');
+                            const bambu = printers.find(p => p.name.includes('Bambu') || p.id.includes('BAMBU')) || printers[0];
+                            if (bambu) {
+                              assignOrderToPrinter(job.orderId, bambu.id);
+                            }
                           }}
                           className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
                           title="Assign to Bambu Lab A1 and start printing"
                         >
-                          Print on A1
+                          Print A1
                         </button>
                         <button
-                          onClick={() => adminUpdateOrderStatus(job.orderId, 'QA Inspection & Tolerance Check')}
+                          onClick={() => qaCheckOrder(job.orderId, { tolerance: '< 0.08mm', notes: 'Inspection pass' })}
                           className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                          title="Pass Caliper QA Check"
                         >
-                          QA Done
+                          QA Pass
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete order ${job.orderId}?`)) {
+                              deleteOrder(job.orderId);
+                            }
+                          }}
+                          className="px-2 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-lg text-[10px] font-bold cursor-pointer"
+                          title="Remove Order"
+                        >
+                          <Trash2 className="w-3 h-3 inline" />
                         </button>
                       </td>
                     </tr>
@@ -896,6 +934,7 @@ export default function AdminPage() {
                   <th className="py-2.5 px-3">Total Orders</th>
                   <th className="py-2.5 px-3">Total Spend</th>
                   <th className="py-2.5 px-3">Account Status</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -931,7 +970,7 @@ export default function AdminPage() {
                     </td>
 
                     <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                      {user.totalOrders}
+                      {user.totalOrders || user.ordersCount || 0}
                     </td>
 
                     <td className="py-3 px-3 font-mono font-bold text-slate-900">
@@ -943,6 +982,22 @@ export default function AdminPage() {
                         <Check className="w-2.5 h-2.5 mr-0.5" />
                         {user.status || 'Active'}
                       </span>
+                    </td>
+
+                    <td className="py-3 px-3 text-right">
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Remove user ${user.name}?`)) {
+                              deleteUser(user.id);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete user account"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -974,14 +1029,14 @@ export default function AdminPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {customInquiries.map((inq) => (
-                <div key={inq.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2 text-xs">
+                <div key={inq.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3 text-xs">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-bold text-slate-900 text-sm block">{inq.name}</span>
-                      <span className="text-[11px] text-indigo-600 font-mono">{inq.email}</span>
+                      <span className="font-bold text-slate-900 text-sm block">{inq.name || inq.customerName}</span>
+                      <span className="text-[11px] text-indigo-600 font-mono">{inq.email || inq.customerEmail}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                      {inq.productInterest}
+                      {inq.productInterest || inq.category}
                     </span>
                   </div>
 
@@ -992,20 +1047,73 @@ export default function AdminPage() {
                     </div>
                     <div>
                       <span className="text-slate-400 block font-semibold">Requested Colors:</span>
-                      <span className="font-mono text-slate-800">{inq.preferredColors || 'Default'}</span>
+                      <span className="font-mono text-slate-800">{inq.preferredColors || inq.materialPreference || 'Default'}</span>
                     </div>
                   </div>
 
-                  <div>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase block">Special Notes:</span>
-                    <p className="text-slate-700 bg-white p-2 rounded-lg border border-slate-100 mt-0.5">
-                      {inq.specialNotes}
-                    </p>
-                  </div>
+                  {(inq.specialNotes || inq.description) && (
+                    <div>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase block">Special Notes:</span>
+                      <p className="text-slate-700 bg-white p-2 rounded-lg border border-slate-100 mt-0.5">
+                        {inq.specialNotes || inq.description}
+                      </p>
+                    </div>
+                  )}
 
-                  <div className="pt-1 flex justify-between items-center text-[10px] text-slate-400">
-                    <span>Received: {inq.date}</span>
-                    <span className="text-emerald-600 font-bold">Status: {inq.status}</span>
+                  {inq.quoteAmount != null && (
+                    <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-900">
+                      <div className="flex justify-between items-center font-bold text-xs">
+                        <span>Quoted Price:</span>
+                        <span className="font-mono text-sm">${Number(inq.quoteAmount).toFixed(2)}</span>
+                      </div>
+                      {inq.adminReply && (
+                        <p className="text-[11px] text-emerald-800 mt-1 italic">
+                          "{inq.adminReply}"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[10px] text-slate-400">Status:</span>
+                      <select
+                        value={inq.status || 'Pending Review'}
+                        onChange={(e) => updateInquiryStatus(inq.id, e.target.value)}
+                        className="px-2 py-1 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-800"
+                      >
+                        <option value="Pending Review">Pending Review</option>
+                        <option value="In Review">In Review</option>
+                        <option value="Quoted">Quoted</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Archived">Archived</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => {
+                          setReplyingInquiry(inq);
+                          setInquiryQuoteAmount(inq.quoteAmount != null ? inq.quoteAmount : '');
+                          setInquiryAdminReply(inq.adminReply || '');
+                        }}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-[10px] font-bold cursor-pointer"
+                      >
+                        Quote / Reply
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Delete this inquiry?')) {
+                            deleteInquiry(inq.id);
+                          }
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                        title="Delete Inquiry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1594,6 +1702,89 @@ export default function AdminPage() {
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-xs cursor-pointer"
                 >
                   Add Color Swatch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUOTE / REPLY CUSTOM INQUIRY MODAL */}
+      {replyingInquiry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Quote & Reply to Inquiry</h3>
+                  <span className="text-[10px] text-slate-500 font-mono">{replyingInquiry.id} • {replyingInquiry.name || replyingInquiry.customerName}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingInquiry(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                replyToInquiry(replyingInquiry.id, {
+                  quoteAmount: inquiryQuoteAmount ? Number(inquiryQuoteAmount) : null,
+                  adminReply: inquiryAdminReply,
+                });
+                setReplyingInquiry(null);
+              }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Estimated Quote Price ($ USD)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="29.99"
+                    value={inquiryQuoteAmount}
+                    onChange={(e) => setInquiryQuoteAmount(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Design Engineer Notes / Response
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="e.g. Reviewed CAD dimensions; recommended 0.16mm layer height in PLA+ Silk Gold with 4-hour print estimate."
+                  value={inquiryAdminReply}
+                  onChange={(e) => setInquiryAdminReply(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setReplyingInquiry(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                >
+                  Dispatch Quote & Reply
                 </button>
               </div>
             </form>

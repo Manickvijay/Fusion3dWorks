@@ -2,17 +2,107 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { INITIAL_PRODUCTS } from './src/data/products.js';
 
 const PORT = 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'fusion3d-production-super-secret-sign-key-2026';
 
-// Setup Uploads storage
+// ==========================================
+// Security Utilities & Password Hashing
+// ==========================================
+
+function hashPassword(password: string, existingSalt?: string): { hash: string; salt: string } {
+  const salt = existingSalt || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return { hash, salt };
+}
+
+function verifyPassword(password: string, hash: string, salt: string): boolean {
+  if (!hash || !salt) return false;
+  const check = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(check, 'hex'), Buffer.from(hash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+function generateToken(user: { id: string; email: string; role: string }): string {
+  const payload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    nonce: crypto.randomBytes(8).toString('hex'),
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
+  return `${data}.${signature}`;
+}
+
+function verifyToken(token: string): { userId: string; email: string; role: string; exp: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [data, signature] = parts;
+    const expectedSignature = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+      return null;
+    }
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeUser(user: any) {
+  if (!user) return null;
+  const { password, passwordHash, salt, ...safeUser } = user;
+  return safeUser;
+}
+
+// In-Memory Rate Limiter for Auth Protection
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+function authRateLimiter(limit = 40, windowMs = 15 * 60 * 1000) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || now > entry.resetTime) {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+    if (entry.count >= limit) {
+      return res.status(429).json({ message: 'Too many login or registration attempts. Please try again later.' });
+    }
+    entry.count++;
+    next();
+  };
+}
+
+// Setup Uploads storage with strict file security
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+const ALLOWED_EXTENSIONS = new Set([
+  '.stl',
+  '.obj',
+  '.3mf',
+  '.step',
+  '.stp',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.svg',
+]);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -20,21 +110,37 @@ const storage = multer.diskStorage({
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     cb(null, `${base}-${uniqueSuffix}${ext}`);
   },
 });
-const upload = multer({ storage });
 
-// In-Memory Database Store (Pre-seeded with initial data)
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max file size
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      return cb(new Error(`File extension "${ext}" is not permitted. Only CAD models (.stl, .obj, .3mf, .step) and images are accepted.`));
+    }
+    cb(null, true);
+  },
+});
+
+// Seed default hashed passwords
+const defaultUserHash = hashPassword('user123');
+const defaultAdminHash = hashPassword('admin123');
+
+// Database store with hashed credentials
 const db = {
   users: [
     {
       id: 'USR-101',
       name: 'Alex Rivera',
       email: 'user@gmail.com',
-      password: 'user123',
+      passwordHash: defaultUserHash.hash,
+      salt: defaultUserHash.salt,
       role: 'customer',
       phone: '+1 (555) 438-9021',
       address: '742 Evergreen Terrace, Springfield, OR 97477',
@@ -50,7 +156,8 @@ const db = {
       id: 'ADM-201',
       name: 'Chief Maker David',
       email: 'admin@gmail.com',
-      password: 'admin123',
+      passwordHash: defaultAdminHash.hash,
+      salt: defaultAdminHash.salt,
       role: 'admin',
       phone: '+1 (800) 555-F3D',
       address: 'Fusion3D Central Print Lab, San Francisco, CA',
@@ -66,7 +173,8 @@ const db = {
       id: 'USR-102',
       name: 'Samantha Lee',
       email: 'samantha.lee@example.com',
-      password: 'user123',
+      passwordHash: defaultUserHash.hash,
+      salt: defaultUserHash.salt,
       role: 'customer',
       phone: '+1 (555) 892-3310',
       address: '144 Ocean Boulevard, Santa Monica, CA 90401',
@@ -82,7 +190,8 @@ const db = {
       id: 'USR-103',
       name: 'Jordan Martinez',
       email: 'jordan.m@designstudio.io',
-      password: 'user123',
+      passwordHash: defaultUserHash.hash,
+      salt: defaultUserHash.salt,
       role: 'customer',
       phone: '+1 (555) 234-5678',
       address: '500 Tech Parkway, Austin, TX 78701',
@@ -294,17 +403,20 @@ const db = {
   inquiries: [
     {
       id: 'INQ-1001',
-      date: '2026-09-18',
-      createdAt: Date.now() - 48 * 3600 * 1000,
+      name: 'Jordan Martinez',
+      email: 'jordan.m@designstudio.io',
       customerName: 'Jordan Martinez',
       customerEmail: 'jordan.m@designstudio.io',
       phone: '+1 (555) 234-5678',
-      category: 'Architectural Mockup',
-      materialPreference: 'PLA+ Silk',
-      urgency: 'Standard',
-      description: 'Parametric modular facade model for client presentation. Need clean overhang angles.',
-      status: 'In Review',
-      files: [],
+      productInterest: 'Architectural Mockup',
+      dimensions: '250 x 180 x 120 mm',
+      preferredColors: 'Matte White & Space Gray',
+      specialNotes: 'Parametric modular facade model for client presentation. Need clean overhang angles.',
+      date: '2026-09-18',
+      createdAt: Date.now() - 48 * 3600 * 1000,
+      status: 'Pending Review',
+      quoteAmount: null,
+      adminReply: null,
     },
   ],
 };
@@ -339,12 +451,46 @@ const PIPELINE_STAGES = [
 async function startServer() {
   const app = express();
 
-  app.use(cors());
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Basic Security Headers
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
 
-  // Static uploads serving
-  app.use('/uploads', express.static(uploadsDir));
+  app.use(cors());
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // Static uploads serving with safe headers
+  app.use(
+    '/uploads',
+    express.static(uploadsDir, {
+      setHeaders: (res, filePath) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // Prevent executable execution
+        if (filePath.endsWith('.svg')) {
+          res.setHeader('Content-Type', 'image/svg+xml');
+        }
+      },
+    })
+  );
+
+  // Authentication extraction middleware
+  const extractUser = (req: express.Request & { user?: any }, _res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      const payload = verifyToken(token);
+      if (payload) {
+        req.user = payload;
+      }
+    }
+    next();
+  };
+  app.use(extractUser);
 
   // ==========================================
   // 1. Health Endpoint
@@ -354,6 +500,8 @@ async function startServer() {
       status: 'UP',
       service: 'fusion3d-backend',
       timestamp: new Date().toISOString(),
+      security: 'active',
+      fleetStatus: 'operational',
     });
   });
 
@@ -388,25 +536,34 @@ async function startServer() {
       printersBusy,
       registeredUsersCount: db.users.length,
       ordersByStatus,
+      inquiriesCount: db.inquiries.length,
     });
   });
 
   // ==========================================
-  // 3. Auth Endpoints
+  // 3. Auth Endpoints (Advanced Secure)
   // ==========================================
-  app.post('/api/auth/login', (req, res) => {
+
+  // Login
+  app.post('/api/auth/login', authRateLimiter(), (req, res) => {
     const { email, password } = req.body || {};
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
-      // Auto-register demo account if credentials resemble email
-      if (cleanEmail.includes('@') && password && password.length >= 4) {
+      // Auto-provision demo account securely if valid email format
+      if (cleanEmail.includes('@') && password.length >= 4) {
+        const { hash, salt } = hashPassword(password);
         const newUser = {
           id: `USR-${Date.now().toString().slice(-4)}`,
           name: cleanEmail.split('@')[0],
           email: cleanEmail,
-          password: password,
+          passwordHash: hash,
+          salt: salt,
           role: 'customer',
           phone: '+1 (555) 000-0000',
           address: 'Default Shipping Address, USA',
@@ -419,79 +576,189 @@ async function startServer() {
           status: 'Active',
         };
         db.users.unshift(newUser);
+        const token = generateToken(newUser);
         return res.json({
           success: true,
-          token: `token-${newUser.id}-${Date.now()}`,
+          token,
           role: newUser.role,
-          user: newUser,
-          message: 'Account created and logged in successfully',
+          user: sanitizeUser(newUser),
+          message: 'Account created and authenticated securely',
         });
       }
-      return res.status(400).json({ success: false, message: 'User not found with this email' });
+      return res.status(400).json({ success: false, message: 'Account not found with this email.' });
     }
 
-    if (user.password && user.password !== password) {
-      return res.status(400).json({ success: false, message: 'Invalid password credentials.' });
+    // Verify Password Hash
+    let isPasswordValid = false;
+    if (user.passwordHash && user.salt) {
+      isPasswordValid = verifyPassword(password, user.passwordHash, user.salt);
+    } else if ((user as any).password) {
+      // Legacy plaintext migration check
+      isPasswordValid = (user as any).password === password;
+      if (isPasswordValid) {
+        // Upgrade to hashed
+        const { hash, salt } = hashPassword(password);
+        user.passwordHash = hash;
+        user.salt = salt;
+        delete (user as any).password;
+      }
     }
 
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: 'Invalid password credentials.' });
+    }
+
+    const token = generateToken(user);
     res.json({
       success: true,
-      token: `token-${user.id}-${Date.now()}`,
+      token,
       role: user.role,
-      user,
+      user: sanitizeUser(user),
       message: 'Login successful',
     });
   });
 
-  app.post('/api/auth/register', (req, res) => {
+  // Register
+  app.post('/api/auth/register', authRateLimiter(), (req, res) => {
     const body = req.body || {};
     const cleanEmail = (body.email || '').trim().toLowerCase();
+    const cleanName = (body.name || '').trim();
+    const password = body.password || '';
 
-    if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-      return res.status(400).json({ message: 'User already exists with email ' + cleanEmail });
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ message: 'Valid email address is required.' });
+    }
+    if (!password || password.length < 4) {
+      return res.status(400).json({ message: 'Password must be at least 4 characters long.' });
     }
 
+    if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      return res.status(400).json({ message: 'A user with this email address already exists.' });
+    }
+
+    // Role escalation protection: public registrations default to customer
+    const { hash, salt } = hashPassword(password);
     const newUser = {
-      id: body.id || `USR-${Date.now().toString().slice(-4)}`,
-      name: body.name || cleanEmail.split('@')[0],
+      id: `USR-${Date.now().toString().slice(-4)}`,
+      name: cleanName || cleanEmail.split('@')[0],
       email: cleanEmail,
-      password: body.password || 'user123',
-      role: (body.role || 'customer').toLowerCase(),
-      phone: body.phone || '',
-      address: body.address || '',
-      avatar: body.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(body.name || cleanEmail)}`,
-      registeredDate: body.registeredDate || new Date().toISOString().split('T')[0],
-      memberSince: body.memberSince || 'Member since ' + new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      passwordHash: hash,
+      salt: salt,
+      role: 'customer',
+      phone: (body.phone || '').trim(),
+      address: (body.address || '').trim(),
+      avatar: body.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanName || cleanEmail)}`,
+      registeredDate: new Date().toISOString().split('T')[0],
+      memberSince: `Member since ${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`,
       favoriteColor: body.favoriteColor || 'Silk Gold',
       ordersCount: 0,
       totalSpent: 0,
-      status: body.status || 'Active',
+      status: 'Active',
     };
 
     db.users.unshift(newUser);
-    res.json(newUser);
+    const token = generateToken(newUser);
+
+    res.json({
+      ...sanitizeUser(newUser),
+      token,
+      success: true,
+    });
   });
 
+  // Get Current Authenticated Profile
+  app.get('/api/auth/me', (req: any, res) => {
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'Unauthorized session.' });
+    }
+    const user = db.users.find((u) => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User profile not found.' });
+    }
+    res.json(sanitizeUser(user));
+  });
+
+  // Change Password
+  app.put('/api/auth/change-password', (req: any, res) => {
+    const { oldPassword, newPassword } = req.body || {};
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required to update password.' });
+    }
+    if (!newPassword || newPassword.length < 4) {
+      return res.status(400).json({ message: 'New password must be at least 4 characters long.' });
+    }
+
+    const user = db.users.find((u) => u.id === userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    // Verify Old Password
+    let validOld = false;
+    if (user.passwordHash && user.salt) {
+      validOld = verifyPassword(oldPassword, user.passwordHash, user.salt);
+    } else if ((user as any).password) {
+      validOld = (user as any).password === oldPassword;
+    }
+
+    if (!validOld) {
+      return res.status(400).json({ message: 'Current password provided is incorrect.' });
+    }
+
+    const { hash, salt } = hashPassword(newPassword);
+    user.passwordHash = hash;
+    user.salt = salt;
+    delete (user as any).password;
+
+    res.json({ success: true, message: 'Password updated successfully.' });
+  });
+
+  // Get All Users (Sanitized, password never exposed)
   app.get('/api/auth/users', (_req, res) => {
-    res.json(db.users);
+    res.json(db.users.map(sanitizeUser));
   });
 
+  // Get User By ID
   app.get('/api/auth/users/:id', (req, res) => {
     const user = db.users.find((u) => u.id === req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
+    res.json(sanitizeUser(user));
   });
 
-  app.put('/api/auth/users/:id', (req, res) => {
+  // Update User Profile
+  app.put('/api/auth/users/:id', (req: any, res) => {
     const index = db.users.findIndex((u) => u.id === req.params.id);
     if (index === -1) return res.status(404).json({ message: 'User not found' });
-    db.users[index] = { ...db.users[index], ...req.body };
-    res.json(db.users[index]);
+
+    const existing = db.users[index];
+    const updates = { ...req.body };
+
+    // Prevent overwriting internal security credentials directly
+    delete updates.password;
+    delete updates.passwordHash;
+    delete updates.salt;
+
+    // Role modification requires admin authorization
+    if (updates.role && updates.role !== existing.role) {
+      if (req.user?.role !== 'admin') {
+        delete updates.role;
+      }
+    }
+
+    db.users[index] = { ...existing, ...updates };
+    res.json(sanitizeUser(db.users[index]));
+  });
+
+  // Delete User
+  app.delete('/api/auth/users/:id', (req: any, res) => {
+    db.users = db.users.filter((u) => u.id !== req.params.id);
+    res.status(204).send();
   });
 
   // ==========================================
   // 4. Products Endpoints
   // ==========================================
+
   app.get('/api/products', (req, res) => {
     const { category, search } = req.query;
     let list = [...db.products];
@@ -520,20 +787,30 @@ async function startServer() {
   });
 
   app.post('/api/products', (req, res) => {
+    const body = req.body || {};
+    const price = Math.max(0.01, Number(body.price) || 14.99);
+
     const product = {
-      ...req.body,
-      id: req.body.id || `prod-${Date.now()}`,
-      rating: req.body.rating || 5.0,
-      reviewsCount: req.body.reviewsCount || 0,
-      reviews: req.body.reviews || [],
+      ...body,
+      id: body.id || `prod-${Date.now()}`,
+      name: body.name || 'Custom 3D Print Model',
+      price,
+      originalPrice: body.originalPrice || price,
+      discountPercent: Number(body.discountPercent) || 0,
+      rating: body.rating || 5.0,
+      reviewsCount: body.reviewsCount || 0,
+      reviews: body.reviews || [],
+      gallery: body.gallery && body.gallery.length > 0 ? body.gallery : [body.image],
     };
+
     db.products.unshift(product);
-    res.json(product);
+    res.status(201).json(product);
   });
 
   app.put('/api/products/:id', (req, res) => {
     const index = db.products.findIndex((p) => p.id === req.params.id);
     if (index === -1) return res.status(404).json({ message: 'Product not found' });
+
     db.products[index] = { ...db.products[index], ...req.body };
     res.json(db.products[index]);
   });
@@ -543,10 +820,9 @@ async function startServer() {
     if (index === -1) return res.status(404).json({ message: 'Product not found' });
 
     const p = db.products[index];
-    const discountPercent = Number(req.body.discountPercent) || 0;
-    const originalPrice = req.body.originalPrice != null
-      ? Number(req.body.originalPrice)
-      : (p.originalPrice || p.price);
+    const discountPercent = Math.min(100, Math.max(0, Number(req.body.discountPercent) || 0));
+    const originalPrice =
+      req.body.originalPrice != null ? Number(req.body.originalPrice) : p.originalPrice || p.price;
 
     let finalPrice = originalPrice;
     if (discountPercent > 0) {
@@ -571,21 +847,26 @@ async function startServer() {
     if (index === -1) return res.status(404).json({ message: 'Product not found' });
 
     const p = db.products[index];
+    const rawRating = Number(req.body.rating) || 5;
+    const rating = Math.min(5, Math.max(1, rawRating));
+
     const newReview = {
       id: `rev-${Date.now()}`,
-      reviewerName: req.body.userName || req.body.reviewerName || 'Verified Maker',
-      rating: Number(req.body.rating) || 5,
+      reviewerName: req.body.userName || req.body.reviewerName || req.body.author || 'Verified Maker',
+      author: req.body.author || req.body.userName || req.body.reviewerName || 'Verified Maker',
+      rating,
       date: 'Just now',
-      comment: req.body.comment || '',
+      comment: (req.body.comment || '').slice(0, 1000),
       verifiedPurchase: true,
+      verified: true,
+      images: req.body.images || req.body.userImages || [],
       userImages: req.body.images || req.body.userImages || [],
     };
 
     const currentReviews = p.reviews || [];
     p.reviews = [newReview, ...currentReviews];
     p.reviewsCount = (p.reviewsCount || 0) + 1;
-    const avg =
-      p.reviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / p.reviews.length;
+    const avg = p.reviews.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / p.reviews.length;
     p.rating = Math.round(avg * 10) / 10;
 
     db.products[index] = p;
@@ -595,6 +876,7 @@ async function startServer() {
   // ==========================================
   // 5. Orders Endpoints
   // ==========================================
+
   app.get('/api/orders', (req, res) => {
     const { customerEmail } = req.query;
     if (customerEmail && typeof customerEmail === 'string') {
@@ -663,7 +945,7 @@ async function startServer() {
     };
 
     db.orders.unshift(newOrder);
-    res.json(newOrder);
+    res.status(201).json(newOrder);
   });
 
   app.patch('/api/orders/:id/status', (req, res) => {
@@ -693,7 +975,7 @@ async function startServer() {
       }
     }
 
-    if (assignedPrinter) order.assignedPrinter = assignedPrinter;
+    if (assignedPrinter !== undefined) order.assignedPrinter = assignedPrinter;
     if (deliveryPartner) order.deliveryPartner = deliveryPartner;
     if (trackingNumber) order.trackingNumber = trackingNumber;
     if (designProofApproved !== undefined && order.designProof) {
@@ -788,7 +1070,7 @@ async function startServer() {
     if (index === -1) return res.status(404).json({ message: 'Order not found' });
 
     const { printerId, timeShift } = req.body;
-    const printer = db.printers.find((p) => p.id === printerId);
+    const printer = db.printers.find((p) => p.id === printerId || p.name === printerId);
 
     const order = db.orders[index];
     order.status = 'Printing Started';
@@ -811,7 +1093,7 @@ async function startServer() {
             ...step,
             done: true,
             time: step.time === 'Pending' ? new Date().toTimeString().slice(0, 5) : step.time,
-            note: idx === targetIndex ? `Assigned to ${order.assignedPrinter} (${timeShift || 'Daytime'})` : step.note,
+            note: idx === targetIndex ? `Assigned to ${order.assignedPrinter} (${timeShift || 'Daytime Quick Turnaround'})` : step.note,
           };
         }
         return step;
@@ -822,9 +1104,54 @@ async function startServer() {
     res.json(order);
   });
 
+  // QA Inspection Check Action
+  app.post('/api/orders/:id/qa-check', (req, res) => {
+    const index = db.orders.findIndex((o) => o.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Order not found' });
+
+    const order = db.orders[index];
+    const { pass, tolerance, notes } = req.body || {};
+
+    if (pass !== false) {
+      order.status = 'QA Testing the Product';
+      order.statusProgress = 85;
+      order.qaPassed = true;
+      order.qaDetails = {
+        tolerance: tolerance || '< 0.10mm (Pass)',
+        inspectedAt: new Date().toISOString(),
+        notes: notes || 'Dimensional caliper check passed; clean layer surface adhesion confirmed.',
+      };
+
+      if (order.timeline) {
+        const targetIndex = PIPELINE_STAGES.indexOf('QA Testing the Product');
+        order.timeline = order.timeline.map((step, idx) => {
+          if (idx <= targetIndex) {
+            return {
+              ...step,
+              done: true,
+              time: step.time === 'Pending' ? new Date().toTimeString().slice(0, 5) : step.time,
+              note: idx === targetIndex ? `QA Inspection Passed (${tolerance || '< 0.10mm'})` : step.note,
+            };
+          }
+          return step;
+        });
+      }
+    }
+
+    db.orders[index] = order;
+    res.json(order);
+  });
+
+  // Delete / Archive Order
+  app.delete('/api/orders/:id', (req, res) => {
+    db.orders = db.orders.filter((o) => o.id !== req.params.id);
+    res.status(204).send();
+  });
+
   // ==========================================
   // 6. Printers Endpoints
   // ==========================================
+
   app.get('/api/printers', (_req, res) => {
     res.json(db.printers);
   });
@@ -838,7 +1165,17 @@ async function startServer() {
   app.put('/api/printers/:id', (req, res) => {
     const index = db.printers.findIndex((p) => p.id === req.params.id);
     if (index === -1) return res.status(404).json({ message: 'Printer not found' });
-    db.printers[index] = { ...db.printers[index], ...req.body };
+
+    const updates = typeof req.body === 'string' ? { status: req.body } : req.body;
+    db.printers[index] = { ...db.printers[index], ...updates };
+
+    if (updates.status === 'Idle') {
+      db.printers[index].currentJobId = null;
+      db.printers[index].currentJobName = null;
+      db.printers[index].percentage = 0;
+      db.printers[index].timeLeft = '--';
+    }
+
     res.json(db.printers[index]);
   });
 
@@ -847,9 +1184,13 @@ async function startServer() {
       ...req.body,
       id: req.body.id || `PRINTER-${Date.now()}`,
       status: req.body.status || 'Idle',
+      currentJobId: null,
+      currentJobName: null,
+      percentage: 0,
+      timeLeft: '--',
     };
     db.printers.push(newPrinter);
-    res.json(newPrinter);
+    res.status(201).json(newPrinter);
   });
 
   app.delete('/api/printers/:id', (req, res) => {
@@ -857,46 +1198,166 @@ async function startServer() {
     res.status(204).send();
   });
 
+  // Toggle Maintenance / Calibration
+  app.post('/api/printers/:id/maintenance', (req, res) => {
+    const index = db.printers.findIndex((p) => p.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Printer not found' });
+
+    const currentStatus = db.printers[index].status;
+    const isMaint = currentStatus === 'Maintenance' || currentStatus === 'Calibrating';
+    db.printers[index].status = isMaint ? 'Idle' : 'Maintenance';
+
+    if (!isMaint) {
+      db.printers[index].currentJobId = null;
+      db.printers[index].currentJobName = 'Calibration Bed Tramming';
+      db.printers[index].percentage = 0;
+      db.printers[index].timeLeft = '--';
+    }
+
+    res.json(db.printers[index]);
+  });
+
+  // Clear Finished Job
+  app.post('/api/printers/:id/clear-job', (req, res) => {
+    const index = db.printers.findIndex((p) => p.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Printer not found' });
+
+    db.printers[index].status = 'Idle';
+    db.printers[index].currentJobId = null;
+    db.printers[index].currentJobName = null;
+    db.printers[index].percentage = 0;
+    db.printers[index].timeLeft = '--';
+
+    res.json(db.printers[index]);
+  });
+
   // ==========================================
-  // 7. Inquiries Endpoints
+  // 7. Inquiries Endpoints (Full CRUD & Status)
   // ==========================================
+
   app.get('/api/inquiries', (req, res) => {
     const { customerEmail } = req.query;
     if (customerEmail && typeof customerEmail === 'string') {
       const filtered = db.inquiries.filter(
-        (i) => (i.customerEmail || '').toLowerCase() === customerEmail.toLowerCase()
+        (i) => (i.email || i.customerEmail || '').toLowerCase() === customerEmail.toLowerCase()
       );
       return res.json(filtered);
     }
     res.json(db.inquiries);
   });
 
+  app.get('/api/inquiries/:id', (req, res) => {
+    const item = db.inquiries.find((i) => i.id === req.params.id);
+    if (!item) return res.status(404).json({ message: 'Inquiry not found' });
+    res.json(item);
+  });
+
   app.post('/api/inquiries', (req, res) => {
+    const body = req.body || {};
     const newInquiry = {
-      ...req.body,
-      id: req.body.id || `INQ-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: req.body.date || new Date().toISOString().split('T')[0],
-      createdAt: req.body.createdAt || Date.now(),
-      status: req.body.status || 'Pending Review',
+      id: body.id || `INQ-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: body.name || body.customerName || 'Anonymous Maker',
+      email: body.email || body.customerEmail || 'maker@example.com',
+      customerName: body.name || body.customerName || 'Anonymous Maker',
+      customerEmail: body.email || body.customerEmail || 'maker@example.com',
+      phone: body.phone || '',
+      productInterest: body.productInterest || body.category || 'Custom CAD Print',
+      dimensions: body.dimensions || 'Custom Sizing',
+      preferredColors: body.preferredColors || body.materialPreference || 'Silk Gold',
+      specialNotes: body.specialNotes || body.description || '',
+      date: body.date || new Date().toISOString().split('T')[0],
+      createdAt: body.createdAt || Date.now(),
+      status: body.status || 'Pending Review',
+      quoteAmount: body.quoteAmount || null,
+      adminReply: body.adminReply || null,
+      files: body.files || [],
     };
     db.inquiries.unshift(newInquiry);
-    res.json(newInquiry);
+    res.status(201).json(newInquiry);
+  });
+
+  app.patch('/api/inquiries/:id/status', (req, res) => {
+    const index = db.inquiries.findIndex((i) => i.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Inquiry not found' });
+
+    const status = req.body?.status || req.body?.newStatus || 'Pending Review';
+    db.inquiries[index].status = status;
+    res.json(db.inquiries[index]);
+  });
+
+  app.post('/api/inquiries/:id/reply', (req, res) => {
+    const index = db.inquiries.findIndex((i) => i.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Inquiry not found' });
+
+    const { quoteAmount, adminReply } = req.body || {};
+    if (quoteAmount !== undefined) {
+      db.inquiries[index].quoteAmount = Number(quoteAmount);
+      db.inquiries[index].status = 'Quoted';
+    }
+    if (adminReply) {
+      db.inquiries[index].adminReply = adminReply;
+    }
+    res.json(db.inquiries[index]);
+  });
+
+  app.delete('/api/inquiries/:id', (req, res) => {
+    db.inquiries = db.inquiries.filter((i) => i.id !== req.params.id);
+    res.status(204).send();
   });
 
   // ==========================================
-  // 8. Storage File Upload Endpoint
+  // 8. Storage File Upload & Secure Deletion
   // ==========================================
+
   app.post('/api/storage/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      return res.status(400).json({ message: 'No file uploaded or file extension is not permitted.' });
     }
-    const folder = req.body.folder || req.query.folder || 'uploads';
+    const rawFolder = req.body.folder || (req.query.folder as string) || 'uploads';
+    const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '');
+
     res.json({
       fileUrl: `/uploads/${req.file.filename}`,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       folder,
+      contentType: req.file.mimetype,
     });
+  });
+
+  app.delete('/api/storage/delete', (req, res) => {
+    const fileUrl = (req.query.fileUrl || req.body?.fileUrl) as string;
+    if (!fileUrl) {
+      return res.status(400).json({ message: 'fileUrl parameter is required' });
+    }
+
+    // Strip URL parameters and get base file name safely
+    const cleanName = path.basename(fileUrl.split('?')[0]);
+    const targetPath = path.resolve(uploadsDir, cleanName);
+
+    // Path traversal safety validation
+    if (!targetPath.startsWith(uploadsDir)) {
+      return res.status(403).json({ message: 'Forbidden: Invalid target file path.' });
+    }
+
+    if (fs.existsSync(targetPath)) {
+      try {
+        fs.unlinkSync(targetPath);
+        return res.status(204).send();
+      } catch (err: any) {
+        return res.status(500).json({ message: 'Could not delete storage file: ' + err.message });
+      }
+    }
+
+    res.status(404).json({ message: 'Storage file not found' });
+  });
+
+  // Error handling for Multer or input errors
+  app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof multer.MulterError || err?.message) {
+      return res.status(400).json({ message: err.message });
+    }
+    next(err);
   });
 
   // ==========================================
@@ -917,7 +1378,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Fusion3D Full-Stack Server running on port ${PORT}`);
+    console.log(`Fusion3D Advanced Secure Full-Stack Server running on port ${PORT}`);
   });
 }
 
