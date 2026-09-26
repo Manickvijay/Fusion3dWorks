@@ -38,7 +38,7 @@ export default function Footer() {
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-white text-sm">Live Slicing & Print Queue</h4>
+              <h4 className="font-bold text-white text-sm">Live Slicing & Production</h4>
               <p className="text-slate-400 text-xs mt-1">
                 Track every print progress percentage, nozzle temperature, and delivery step.
               </p>
@@ -92,7 +92,7 @@ export default function Footer() {
           <h5 className="font-bold text-white mb-3 uppercase tracking-wider text-[11px]">Custom Services</h5>
           <ul className="space-y-2 text-slate-400">
             <li><Link to="/custom-print" className="hover:text-white transition-colors">Upload Custom STL/OBJ</Link></li>
-            <li><Link to="/track-order" className="hover:text-white transition-colors">Track 3D Print Queue</Link></li>
+            <li><Link to="/track-order" className="hover:text-white transition-colors">Track 3D Print Orders</Link></li>
             <li><Link to="/profile" className="hover:text-white transition-colors">Maker Account</Link></li>
             <li><Link to="/admin" className="hover:text-white transition-colors">Admin Print Farm</Link></li>
           </ul>

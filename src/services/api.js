@@ -179,6 +179,11 @@ export const api = {
         body: JSON.stringify(userData),
       }),
     getMe: () => request('/api/auth/me'),
+    updateProfile: (data) =>
+      request('/api/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
     changePassword: (oldPassword, newPassword) =>
       request('/api/auth/change-password', {
         method: 'PUT',
@@ -253,8 +258,61 @@ export const api = {
 
       return response.json();
     },
+    uploadMultiple: async (files, folder = 'uploads') => {
+      const url = `${API_BASE_URL}/api/storage/upload?folder=${encodeURIComponent(folder)}`;
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+      }
+      formData.append('folder', folder);
+
+      const authHeaders = getAuthHeader();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let msg = `Upload failed: ${response.statusText}`;
+        try {
+          const errData = await response.json();
+          if (errData?.message) msg = errData.message;
+        } catch (_err) {
+          // Ignore if error response is not valid JSON
+        }
+        throw new Error(msg);
+      }
+
+      return response.json();
+    },
     delete: (fileUrl) =>
       request(`/api/storage/delete?fileUrl=${encodeURIComponent(fileUrl)}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  filaments: {
+    getAll: () => request('/api/filaments'),
+    create: (data) =>
+      request('/api/filaments', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id, data) =>
+      request(`/api/filaments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    toggleStock: (id, inStock) =>
+      request(`/api/filaments/${id}/stock`, {
+        method: 'PATCH',
+        body: JSON.stringify({ inStock }),
+      }),
+    delete: (id) =>
+      request(`/api/filaments/${id}`, {
         method: 'DELETE',
       }),
   },

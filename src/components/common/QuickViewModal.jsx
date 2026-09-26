@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Clock, Sparkles, Star, Layers, ArrowRight } from 'lucide-react';
+import { X, ShoppingBag, Clock, Sparkles, Star, Layers, ArrowRight, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import Interactive3DViewer from './Interactive3DViewer';
 
 export default function QuickViewModal() {
-  const { quickViewProduct, setQuickViewProduct, addToCart } = useShop();
+  const { quickViewProduct, setQuickViewProduct, addToCart, filaments } = useShop();
   
   if (!quickViewProduct) return null;
 
@@ -14,7 +14,7 @@ export default function QuickViewModal() {
   const initialColors = {};
   if (quickViewProduct.customizableSections && Array.isArray(quickViewProduct.customizableSections)) {
     quickViewProduct.customizableSections.forEach(s => {
-      initialColors[s.id] = s.defaultColor || (s.options && s.options[0]?.hex) || '#4F46E5';
+      initialColors[s.id] = s.defaultColor || (s.options && s.options[0]?.hex) || filaments?.[0]?.hex || '#4F46E5';
     });
   }
 
@@ -24,11 +24,12 @@ export default function QuickViewModal() {
       initialColors={initialColors}
       onClose={() => setQuickViewProduct(null)}
       addToCart={addToCart}
+      filaments={filaments}
     />
   );
 }
 
-function QuickViewModalContent({ product, initialColors, onClose, addToCart }) {
+function QuickViewModalContent({ product, initialColors, onClose, addToCart, filaments }) {
   const [selectedColors, setSelectedColors] = useState(initialColors);
   const [customText, setCustomText] = useState('SARAH');
 
@@ -130,32 +131,65 @@ function QuickViewModalContent({ product, initialColors, onClose, addToCart }) {
                 </div>
               )}
 
-              {/* Color Sections */}
-              {product.customizableSections && product.customizableSections.map(section => (
-                <div key={section.id} className="space-y-1.5 pt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800">{section.name}:</span>
-                    <span className="text-slate-500 font-medium">
-                      {section.options ? section.options.find(o => o.hex === selectedColors[section.id])?.name || '' : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {(section.options || []).map((opt, idx) => (
-                      <button
-                        key={opt?.hex || `opt-${idx}`}
-                        onClick={() => handleColorSelect(section.id, opt.hex)}
-                        className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
-                          selectedColors[section.id] === opt.hex
-                            ? 'scale-110 border-indigo-600 ring-2 ring-indigo-200'
-                            : 'border-slate-300 hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: opt.hex }}
-                        title={opt.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {/* Color Sections from Filament Inventory */}
+              {(() => {
+                const isSingle = product.colorMode === 'single' || (product.customizableSections || []).length <= 1;
+                const sections = isSingle
+                  ? [{ id: 'color_main', name: product.singleHeading || product.customizableSections?.[0]?.name || 'Filament Colour' }]
+                  : (product.customizableSections && product.customizableSections.length > 0
+                      ? product.customizableSections
+                      : (product.colorHeadings || ['Top Colour', 'Bottom Colour']).map((h, i) => ({ id: `color_part_${i}`, name: h }))
+                    );
+
+                return sections.map(section => {
+                  const activeHex = selectedColors[section.id] || selectedColors['color_main'] || section.defaultColor || filaments?.[0]?.hex || '#F59E0B';
+                  const activeFilament = (filaments || []).find(f => f.hex?.toLowerCase() === activeHex?.toLowerCase());
+
+                  return (
+                    <div key={section.id} className="space-y-1.5 pt-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800">{section.name}:</span>
+                        <span className="text-indigo-600 font-bold font-mono text-[11px]">
+                          {activeFilament?.name || 'Selected'}
+                        </span>
+                      </div>
+                      <div className="flex items-center flex-wrap gap-2">
+                        {(filaments || []).map(fil => {
+                          const isOutOfStock = fil.inStock === false;
+                          const isSelected = activeHex?.toLowerCase() === fil.hex?.toLowerCase();
+
+                          return (
+                            <button
+                              key={fil.id}
+                              type="button"
+                              disabled={isOutOfStock}
+                              onClick={() => handleColorSelect(section.id, fil.hex)}
+                              className={`relative w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer ${
+                                isOutOfStock
+                                  ? 'opacity-30 cursor-not-allowed border-rose-400 border-dashed overflow-hidden'
+                                  : isSelected
+                                  ? 'scale-115 border-white ring-2 ring-indigo-600 shadow-xs'
+                                  : 'border-slate-300 hover:scale-105'
+                              }`}
+                              style={{ backgroundColor: fil.hex }}
+                              title={isOutOfStock ? `${fil.name} - Out of stock` : `${fil.name} (${fil.material})`}
+                            >
+                              {isOutOfStock && (
+                                <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <span className="w-full h-0.5 bg-rose-600 rotate-45 transform" />
+                                </span>
+                              )}
+                              {isSelected && !isOutOfStock && (
+                                <Check className="w-3 h-3 text-white stroke-[3] drop-shadow-xs" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             {/* Action Bar */}

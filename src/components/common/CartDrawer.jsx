@@ -23,7 +23,10 @@ export default function CartDrawer() {
     updateQuantity,
     cartSubtotal,
     cartItemCount,
-    totalPrintMinutes
+    totalPrintMinutes,
+    currentUser,
+    setIsLoginModalOpen,
+    addToast
   } = useShop();
 
   const navigate = useNavigate();
@@ -34,6 +37,12 @@ export default function CartDrawer() {
   const remainingMins = totalPrintMinutes % 60;
 
   const handleGoToCheckout = () => {
+    if (!currentUser) {
+      setIsCartOpen(false);
+      setIsLoginModalOpen(true);
+      addToast('Please sign in or create an account to process your cart items and complete checkout.', 'info');
+      return;
+    }
     setIsCartOpen(false);
     navigate('/checkout');
   };

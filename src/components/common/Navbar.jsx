@@ -131,38 +131,50 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Global Search Bar */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md relative">
-          <input
-            type="text"
-            placeholder="Search custom keychains, cake toppers, name boards..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-slate-200 rounded-full text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </form>
+        {/* Global Search Bar (Customer only) */}
+        {currentUser?.role !== 'admin' ? (
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md relative">
+            <input
+              type="text"
+              placeholder="Search custom keychains, cake toppers, name boards..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-slate-200 rounded-full text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </form>
+        ) : (
+          <div className="hidden md:flex items-center space-x-2 text-xs font-bold text-slate-600">
+            <span className="px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 flex items-center space-x-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin Management Dashboard Active</span>
+            </span>
+          </div>
+        )}
 
         {/* Navigation & Action Controls */}
         <div className="flex items-center space-x-3 sm:space-x-4">
           
-          {/* Custom CAD / 3D Model Upload Service link */}
-          <Link
-            to="/custom-print"
-            className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors"
-          >
-            <UploadCloud className="w-4 h-4 text-indigo-500" />
-            <span>Custom Print (STL)</span>
-          </Link>
+          {/* Customer only navigation: Custom CAD & Track Order */}
+          {currentUser?.role !== 'admin' && (
+            <>
+              <Link
+                to="/custom-print"
+                className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4 text-indigo-500" />
+                <span>Custom Print (STL)</span>
+              </Link>
 
-          {/* Track Orders Link */}
-          <Link
-            to="/track-order"
-            className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors"
-          >
-            <Truck className="w-4 h-4 text-slate-400" />
-            <span>Track Order</span>
-          </Link>
+              <Link
+                to="/track-order"
+                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 hover:text-indigo-600 hover:bg-slate-100 transition-colors"
+              >
+                <Truck className="w-4 h-4 text-slate-400" />
+                <span>Track Order</span>
+              </Link>
+            </>
+          )}
 
           {/* Customer only: Wishlist & Cart. Admin only: Admin portal link & Fleet summary */}
           {currentUser?.role !== 'admin' ? (

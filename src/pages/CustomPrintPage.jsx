@@ -75,6 +75,8 @@ export default function CustomPrintPage() {
       printTimeMinutes: estimatedMinutes,
       category: 'custom-print',
       material: `${material} (${infill}% Infill)`,
+      cadModelUrl: uploadedFile?.fileUrl || null,
+      uploadedFileName: uploadedFile?.name || '',
       image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80'
     };
 
@@ -83,7 +85,7 @@ export default function CustomPrintPage() {
       {
         quantity: 1,
         selectedColors: { main_filament: selectedColor },
-        customText: `File: ${uploadedFile?.name || 'Customer CAD'}`
+        customText: `File: ${uploadedFile?.name || 'Customer CAD'}${uploadedFile?.fileUrl ? ' (Stored in Cloud)' : ''}`
       },
       e
     );
@@ -294,7 +296,7 @@ export default function CustomPrintPage() {
               className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/25 flex items-center justify-center space-x-2 transition-all cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>Queue Custom 3D Print Job</span>
+              <span>Order Custom 3D Print</span>
             </button>
           </div>
 

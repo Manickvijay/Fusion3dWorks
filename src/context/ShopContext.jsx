@@ -59,6 +59,19 @@ export const INITIAL_REGISTERED_USERS = [
   }
 ];
 
+export const INITIAL_FILAMENTS = [
+  { id: 'fil-1', name: 'Silk Gold', hex: '#F59E0B', material: 'PLA+ Silk', inStock: true },
+  { id: 'fil-2', name: 'Matte Obsidian', hex: '#0F172A', material: 'PLA+ Matte', inStock: true },
+  { id: 'fil-3', name: 'Pure White', hex: '#FFFFFF', material: 'PLA+ Standard', inStock: true },
+  { id: 'fil-4', name: 'Cyber Cyan', hex: '#06B6D4', material: 'PETG High-Gloss', inStock: true },
+  { id: 'fil-5', name: 'Neon Coral', hex: '#F43F5E', material: 'PLA+ PolyTerra', inStock: true },
+  { id: 'fil-6', name: 'Emerald Green', hex: '#10B981', material: 'PLA+ PolyTerra', inStock: true },
+  { id: 'fil-7', name: 'Deep Space Navy', hex: '#1E3A8A', material: 'PLA+ Tough', inStock: true },
+  { id: 'fil-8', name: 'Pastel Lilac', hex: '#A855F7', material: 'PLA+ Silk', inStock: false },
+  { id: 'fil-9', name: 'Graphite Gray', hex: '#475569', material: 'PETG Carbon', inStock: true },
+  { id: 'fil-10', name: 'Ruby Crimson', hex: '#DC2626', material: 'PLA+ Silk', inStock: true },
+];
+
 export const ORDER_STAGES = [
   { id: 'Order Placed', label: 'Order Placed', progress: 10, defaultNote: 'CAD model order received and queued for design engineer.' },
   { id: 'Design Stage', label: 'Design Stage', progress: 20, defaultNote: '3D typography and dimensional modeling in progress.' },
@@ -408,6 +421,16 @@ export function ShopProvider({ children }) {
     }
   });
 
+  // Filament Colors Inventory
+  const [filaments, setFilaments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fusion3d_filaments');
+      return saved ? JSON.parse(saved) : INITIAL_FILAMENTS;
+    } catch {
+      return INITIAL_FILAMENTS;
+    }
+  });
+
   // Backend Connectivity & Live Synchronization
   const [backendStatus, setBackendStatus] = useState('checking'); // 'checking' | 'connected' | 'sleeping' | 'offline'
   const [isBackendSyncing, setIsBackendSyncing] = useState(false);
@@ -420,12 +443,13 @@ export function ShopProvider({ children }) {
       setBackendStatus('connected');
 
       // Fetch live data from Render backend in parallel
-      const [prodRes, orderRes, printerRes, usersRes, inqRes] = await Promise.allSettled([
+      const [prodRes, orderRes, printerRes, usersRes, inqRes, filRes] = await Promise.allSettled([
         api.products.getAll(),
         api.orders.getAll(),
         api.printers.getAll(),
         api.auth.getUsers(),
         api.inquiries.getAll(),
+        api.filaments.getAll(),
       ]);
 
       if (prodRes.status === 'fulfilled' && Array.isArray(prodRes.value) && prodRes.value.length > 0) {
@@ -442,6 +466,9 @@ export function ShopProvider({ children }) {
       }
       if (inqRes.status === 'fulfilled' && Array.isArray(inqRes.value) && inqRes.value.length > 0) {
         setCustomInquiries(inqRes.value);
+      }
+      if (filRes.status === 'fulfilled' && Array.isArray(filRes.value) && filRes.value.length > 0) {
+        setFilaments(filRes.value);
       }
 
       if (notify) {
@@ -506,6 +533,14 @@ export function ShopProvider({ children }) {
       console.error(e);
     }
   }, [customInquiries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('fusion3d_filaments', JSON.stringify(filaments));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [filaments]);
 
   useEffect(() => {
     try {
@@ -1250,9 +1285,52 @@ export function ShopProvider({ children }) {
     api.printers.clearJob(printerId).catch(err => console.log('Clear job sync:', err.message));
   };
 
+  // Filament Color Manager Operations (Admin)
+  const addFilament = (newFil) => {
+    const item = {
+      id: newFil.id || `fil-${Date.now()}`,
+      name: (newFil.name || 'Custom Filament').trim(),
+      hex: newFil.hex || '#F59E0B',
+      material: newFil.material || 'PLA+ Silk',
+      inStock: newFil.inStock !== false
+    };
+    setFilaments(prev => [item, ...prev]);
+    addToast(`Added filament color "${item.name}"!`, 'success');
+    api.filaments.create(item).catch(err => console.log('Filament create sync:', err.message));
+    return item;
+  };
+
+  const updateFilament = (id, updates) => {
+    setFilaments(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    addToast('Filament color updated.', 'success');
+    api.filaments.update(id, updates).catch(err => console.log('Filament update sync:', err.message));
+  };
+
+  const toggleFilamentStock = (id, inStock) => {
+    setFilaments(prev => prev.map(f => {
+      if (f.id === id) {
+        const nextStock = inStock !== undefined ? inStock : !f.inStock;
+        return { ...f, inStock: nextStock };
+      }
+      return f;
+    }));
+    addToast('Filament stock status updated.', 'info');
+    api.filaments.toggleStock(id, inStock).catch(err => console.log('Filament stock sync:', err.message));
+  };
+
+  const deleteFilament = (id) => {
+    setFilaments(prev => prev.filter(f => f.id !== id));
+    addToast('Filament color removed from inventory.', 'info');
+    api.filaments.delete(id).catch(err => console.log('Filament delete sync:', err.message));
+  };
+
   // S3 Cloud CAD/Asset Uploader
   const uploadStorageFile = async (file, folder = 'models') => {
     return api.storage.upload(file, folder);
+  };
+
+  const uploadStorageFiles = async (files, folder = 'products') => {
+    return api.storage.uploadMultiple(files, folder);
   };
 
   // Cart Calculations
@@ -1328,6 +1406,14 @@ export function ShopProvider({ children }) {
         replyToInquiry,
         deleteInquiry,
 
+        // Filament Color Inventory (Admin & Customer Selection)
+        filaments,
+        addFilament,
+        updateFilament,
+        toggleFilamentStock,
+        deleteFilament,
+        INITIAL_FILAMENTS,
+
         // Flying Animation
         flyingItem,
         cartBadgeBounce,
@@ -1344,7 +1430,8 @@ export function ShopProvider({ children }) {
         isBackendSyncing,
         syncWithBackend,
         backendUrl: API_BASE_URL,
-        uploadStorageFile
+        uploadStorageFile,
+        uploadStorageFiles
       }}
     >
       {children}

@@ -207,6 +207,19 @@ const db = {
 
   products: [...INITIAL_PRODUCTS],
 
+  filaments: [
+    { id: 'fil-1', name: 'Silk Gold', hex: '#F59E0B', material: 'PLA+ Silk', inStock: true },
+    { id: 'fil-2', name: 'Matte Obsidian', hex: '#0F172A', material: 'PLA+ Matte', inStock: true },
+    { id: 'fil-3', name: 'Pure White', hex: '#FFFFFF', material: 'PLA+ Standard', inStock: true },
+    { id: 'fil-4', name: 'Cyber Cyan', hex: '#06B6D4', material: 'PETG High-Gloss', inStock: true },
+    { id: 'fil-5', name: 'Neon Coral', hex: '#F43F5E', material: 'PLA+ PolyTerra', inStock: true },
+    { id: 'fil-6', name: 'Emerald Green', hex: '#10B981', material: 'PLA+ PolyTerra', inStock: true },
+    { id: 'fil-7', name: 'Deep Space Navy', hex: '#1E3A8A', material: 'PLA+ Tough', inStock: true },
+    { id: 'fil-8', name: 'Pastel Lilac', hex: '#A855F7', material: 'PLA+ Silk', inStock: false },
+    { id: 'fil-9', name: 'Graphite Gray', hex: '#475569', material: 'PETG Carbon', inStock: true },
+    { id: 'fil-10', name: 'Ruby Crimson', hex: '#DC2626', material: 'PLA+ Silk', inStock: true },
+  ],
+
   printers: [
     {
       id: 'PRINTER-BAMBU-A1',
@@ -725,7 +738,24 @@ async function startServer() {
     res.json(sanitizeUser(user));
   });
 
-  // Update User Profile
+  // Update Current User Profile
+  app.put('/api/auth/profile', (req: any, res) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required to update profile.' });
+    }
+    const index = db.users.findIndex((u) => u.id === userId);
+    if (index === -1) return res.status(404).json({ message: 'User not found' });
+    const updates = { ...req.body };
+    delete updates.password;
+    delete updates.passwordHash;
+    delete updates.salt;
+    delete updates.role;
+    db.users[index] = { ...db.users[index], ...updates };
+    res.json(sanitizeUser(db.users[index]));
+  });
+
+  // Update User Profile by ID (Admin or Self)
   app.put('/api/auth/users/:id', (req: any, res) => {
     const index = db.users.findIndex((u) => u.id === req.params.id);
     if (index === -1) return res.status(404).json({ message: 'User not found' });
@@ -1309,19 +1339,33 @@ async function startServer() {
   // 8. Storage File Upload & Secure Deletion
   // ==========================================
 
-  app.post('/api/storage/upload', upload.single('file'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded or file extension is not permitted.' });
-    }
-    const rawFolder = req.body.folder || (req.query.folder as string) || 'uploads';
-    const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '');
+  app.post('/api/storage/upload', (req, res, next) => {
+    upload.any()(req, res, (err) => {
+      if (err) return next(err);
+      const files = (req.files as Express.Multer.File[]) || [];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ message: 'No file uploaded or file extension is not permitted.' });
+      }
+      const rawFolder = req.body?.folder || (req.query?.folder as string) || 'uploads';
+      const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '');
 
-    res.json({
-      fileUrl: `/uploads/${req.file.filename}`,
-      fileName: req.file.originalname,
-      fileSize: req.file.size,
-      folder,
-      contentType: req.file.mimetype,
+      const uploadedList = files.map((f) => ({
+        fileUrl: `/uploads/${f.filename}`,
+        fileName: f.originalname,
+        fileSize: f.size,
+        folder,
+        contentType: f.mimetype,
+      }));
+
+      // Return both individual fields for single upload compatibility and files array for multiple uploads
+      res.json({
+        fileUrl: uploadedList[0].fileUrl,
+        fileName: uploadedList[0].fileName,
+        fileSize: uploadedList[0].fileSize,
+        folder,
+        contentType: uploadedList[0].contentType,
+        files: uploadedList,
+      });
     });
   });
 
@@ -1350,6 +1394,46 @@ async function startServer() {
     }
 
     res.status(404).json({ message: 'Storage file not found' });
+  });
+
+  // ==========================================
+  // 9. Filament Colors Manager Endpoints
+  // ==========================================
+  app.get('/api/filaments', (_req, res) => {
+    res.json(db.filaments);
+  });
+
+  app.post('/api/filaments', (req, res) => {
+    const body = req.body || {};
+    const newFilament = {
+      id: body.id || `fil-${Date.now()}`,
+      name: (body.name || 'Custom Filament').trim(),
+      hex: body.hex || '#F59E0B',
+      material: body.material || 'PLA+ Silk',
+      inStock: body.inStock !== false,
+    };
+    db.filaments.push(newFilament);
+    res.status(201).json(newFilament);
+  });
+
+  app.put('/api/filaments/:id', (req, res) => {
+    const index = db.filaments.findIndex((f) => f.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Filament not found' });
+    db.filaments[index] = { ...db.filaments[index], ...req.body };
+    res.json(db.filaments[index]);
+  });
+
+  app.patch('/api/filaments/:id/stock', (req, res) => {
+    const index = db.filaments.findIndex((f) => f.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Filament not found' });
+    const inStock = req.body?.inStock !== undefined ? Boolean(req.body.inStock) : !db.filaments[index].inStock;
+    db.filaments[index].inStock = inStock;
+    res.json(db.filaments[index]);
+  });
+
+  app.delete('/api/filaments/:id', (req, res) => {
+    db.filaments = db.filaments.filter((f) => f.id !== req.params.id);
+    res.status(204).send();
   });
 
   // Error handling for Multer or input errors

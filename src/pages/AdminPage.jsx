@@ -62,17 +62,34 @@ export default function AdminPage() {
     updateInquiryStatus,
     replyToInquiry,
     deleteInquiry,
+    filaments,
+    addFilament,
+    updateFilament: _updateFilament,
+    toggleFilamentStock,
+    deleteFilament,
+    uploadStorageFile,
     ORDER_STAGES,
     addToast
   } = useShop();
 
   // Admin opens directly to the 3D printing list (explicit requirement: "Admin only need to see the 3d printing list")
-  const [activeTab, setActiveTab] = useState('worklist'); // 'worklist' | 'products' | 'users' | 'inquiries' | 'dashboard'
+  const [activeTab, setActiveTab] = useState('worklist'); // 'worklist' | 'products' | 'filaments' | 'users' | 'inquiries' | 'dashboard'
 
   // Inquiry Quote/Reply Modal State
   const [replyingInquiry, setReplyingInquiry] = useState(null);
   const [inquiryQuoteAmount, setInquiryQuoteAmount] = useState('');
   const [inquiryAdminReply, setInquiryAdminReply] = useState('');
+
+  // Filament Color Manager Modal State
+  const [isAddingFilament, setIsAddingFilament] = useState(false);
+  const [newFilamentForm, setNewFilamentForm] = useState({
+    name: '',
+    hex: '#F59E0B',
+    material: 'PLA+ Silk',
+    inStock: true
+  });
+  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
+  const [isUploading3DModel, setIsUploading3DModel] = useState(false);
 
   // Print Queue Sorting Mode: "manage give orders base on the time"
   const [queueSortMode, setQueueSortMode] = useState('short-first'); // 'short-first' (Daytime) | 'long-first' (Nighttime) | 'all'
@@ -96,29 +113,24 @@ export default function AdminPage() {
     allowCustomText: true,
     customTextPlaceholder: 'e.g. TOP TEXT / BOTTOM TEXT',
     uploadedFileName: '',
+    cadModelUrl: '',
     requiresUserImage: false,
     minImages: 1,
     maxImages: 3,
     imageInstructions: 'Upload high-resolution photo for 3D lithophane or custom preview',
+    colorMode: 'multiple', // 'single' | 'multiple'
+    singleHeading: 'Primary Filament Color',
+    colorHeadings: ['Top Accent / Text Color', 'Base Plate / Backing Color'],
     customizableSections: [
       {
         id: 'top_text',
         name: 'Top Accent / Text Color',
-        defaultColor: '#F59E0B',
-        options: [
-          { name: 'Silk Gold', hex: '#F59E0B' },
-          { name: 'Cyber Cyan', hex: '#06B6D4' },
-          { name: 'Pure White', hex: '#FFFFFF' }
-        ]
+        defaultColor: '#F59E0B'
       },
       {
         id: 'base_plate',
         name: 'Base Plate / Backing Color',
-        defaultColor: '#0F172A',
-        options: [
-          { name: 'Matte Obsidian', hex: '#0F172A' },
-          { name: 'Space Gray', hex: '#475569' }
-        ]
+        defaultColor: '#0F172A'
       }
     ]
   });
@@ -180,6 +192,17 @@ export default function AdminPage() {
 
   // Open Edit Product Modal
   const handleOpenEditProduct = (product) => {
+    const isSingle = (product.customizableSections || []).length <= 1;
+    const headings = (product.customizableSections || []).length > 0
+      ? product.customizableSections.map(s => s.name)
+      : ['Top Color', 'Bottom Color'];
+    const singleHeading = (product.customizableSections || [])[0]?.name || 'Primary Filament Color';
+    const existingImages = (product.images && product.images.length > 0)
+      ? product.images
+      : (product.gallery && product.gallery.length > 0)
+      ? product.gallery
+      : (product.image ? [product.image] : []);
+
     setEditingProductId(product.id);
     setProductForm({
       name: product.name,
@@ -191,15 +214,20 @@ export default function AdminPage() {
       printTime: product.printTime,
       printTimeMinutes: product.printTimeMinutes || 45,
       description: product.description || '',
-      image: product.image,
+      image: product.image || existingImages[0] || '',
+      images: existingImages,
       modelType: product.modelType || 'keychain',
       allowCustomText: !!product.allowCustomText,
       customTextPlaceholder: product.customTextPlaceholder || 'ENTER TEXT',
       uploadedFileName: product.uploadedFileName || '',
+      cadModelUrl: product.cadModelUrl || '',
       requiresUserImage: !!product.requiresUserImage,
       minImages: product.minImages || 1,
       maxImages: product.maxImages || 3,
-      imageInstructions: product.imageInstructions || 'Upload high-resolution photo for 3D lithophane or custom preview',
+      imageInstructions: product.imageInstructions || 'Upload reference photo for 3D model customization',
+      colorMode: isSingle ? 'single' : 'multiple',
+      singleHeading,
+      colorHeadings: headings,
       customizableSections: product.customizableSections || []
     });
     setIsProductModalOpen(true);
@@ -217,36 +245,24 @@ export default function AdminPage() {
       discountPercent: 0,
       printTime: '45m',
       printTimeMinutes: 45,
-      description: 'Precision multi-color 3D printed custom creation.',
+      description: 'Precision 3D printed custom creation.',
       image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+      images: ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80'],
       modelType: 'keychain',
       allowCustomText: true,
       customTextPlaceholder: 'e.g. TOP TEXT / BOTTOM TEXT',
       uploadedFileName: '',
+      cadModelUrl: '',
       requiresUserImage: false,
       minImages: 1,
       maxImages: 3,
-      imageInstructions: 'Upload high-resolution photo for 3D lithophane or custom preview',
+      imageInstructions: 'Upload reference photo for 3D model customization',
+      colorMode: 'multiple',
+      singleHeading: 'Primary Filament Color',
+      colorHeadings: ['Top Color', 'Bottom Color'],
       customizableSections: [
-        {
-          id: 'top_text',
-          name: 'Top Accent / Text Color',
-          defaultColor: '#F59E0B',
-          options: [
-            { name: 'Silk Gold', hex: '#F59E0B' },
-            { name: 'Cyber Cyan', hex: '#06B6D4' },
-            { name: 'Pure White', hex: '#FFFFFF' }
-          ]
-        },
-        {
-          id: 'base_plate',
-          name: 'Base Plate / Backing Color',
-          defaultColor: '#0F172A',
-          options: [
-            { name: 'Matte Obsidian', hex: '#0F172A' },
-            { name: 'Space Gray', hex: '#475569' }
-          ]
-        }
+        { id: 'top_text', name: 'Top Color', defaultColor: '#F59E0B' },
+        { id: 'base_plate', name: 'Bottom Color', defaultColor: '#0F172A' }
       ]
     });
     setIsProductModalOpen(true);
@@ -255,41 +271,107 @@ export default function AdminPage() {
   // Save product (create or edit)
   const handleSaveProduct = (e) => {
     e.preventDefault();
+
+    // Construct customizableSections based on admin's color headings
+    const finalSections = productForm.colorMode === 'single'
+      ? [{ id: 'color_main', name: (productForm.singleHeading || 'Filament Color').trim(), defaultColor: '#F59E0B' }]
+      : productForm.colorHeadings.filter(h => h.trim()).map((h, idx) => ({
+          id: `color_section_${idx + 1}`,
+          name: h.trim(),
+          defaultColor: '#F59E0B'
+        }));
+
+    const finalImages = (productForm.images && productForm.images.length > 0)
+      ? productForm.images
+      : (productForm.image ? [productForm.image] : []);
+
+    const finalProduct = {
+      ...productForm,
+      image: productForm.image || finalImages[0] || '',
+      images: finalImages,
+      customizableSections: finalSections.length > 0 ? finalSections : [{ id: 'color_main', name: 'Filament Color', defaultColor: '#F59E0B' }]
+    };
+
     if (editingProductId) {
-      updateProduct(editingProductId, productForm);
+      updateProduct(editingProductId, finalProduct);
       addToast(`Product "${productForm.name}" updated successfully!`, 'success');
     } else {
-      addProduct(productForm);
+      addProduct(finalProduct);
       addToast(`New 3D Product "${productForm.name}" published!`, 'success');
     }
     setIsProductModalOpen(false);
   };
 
-  // Local Image Upload Handler
-  const handleImageFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setProductForm(prev => ({
-        ...prev,
-        image: uploadEvent.target.result
-      }));
-      addToast(`Uploaded image: ${file.name}`, 'success');
-    };
-    reader.readAsDataURL(file);
+  // Multiple Image Upload Handler via Backend Storage Service
+  const handleMultipleImagesUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setIsUploadingProductImage(true);
+    try {
+      const uploadPromises = files.map(file => uploadStorageFile(file, 'products'));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.fileUrl || r.url).filter(Boolean);
+
+      setProductForm(prev => {
+        const currentList = Array.isArray(prev.images) && prev.images.length > 0
+          ? [...prev.images]
+          : (prev.image ? [prev.image] : []);
+        const combined = [...currentList, ...newUrls];
+        return {
+          ...prev,
+          image: prev.image || combined[0] || '',
+          images: combined
+        };
+      });
+      addToast(`Successfully uploaded ${newUrls.length} product image(s) to storage!`, 'success');
+    } catch (err) {
+      addToast(err.message || 'Image upload failed', 'error');
+    } finally {
+      setIsUploadingProductImage(false);
+    }
   };
 
-  // 3D File (.stl, .obj, .3mf) Upload Handler
-  const handle3DModelFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleRemoveProductImage = (idx) => {
+    setProductForm(prev => {
+      const currentList = prev.images || (prev.image ? [prev.image] : []);
+      const updated = currentList.filter((_, i) => i !== idx);
+      return {
+        ...prev,
+        images: updated,
+        image: prev.image === currentList[idx] ? (updated[0] || '') : prev.image
+      };
+    });
+  };
+
+  const handleSetCoverImage = (imgUrl) => {
     setProductForm(prev => ({
       ...prev,
-      uploadedFileName: file.name,
-      description: prev.description ? `${prev.description} [Attached 3D Model: ${file.name}]` : `Custom 3D Model: ${file.name}`
+      image: imgUrl
     }));
-    addToast(`3D CAD File "${file.name}" linked to product!`, 'success');
+    addToast('Set as primary cover image!', 'info');
+  };
+
+  // 3D File (.stl, .obj, .3mf) Upload Handler via Backend Storage Service
+  const handle3DModelFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading3DModel(true);
+    try {
+      const res = await uploadStorageFile(file, 'cad-models');
+      if (res?.fileUrl) {
+        setProductForm(prev => ({
+          ...prev,
+          uploadedFileName: file.name,
+          cadModelUrl: res.fileUrl,
+          description: prev.description ? `${prev.description} [Attached 3D Model: ${file.name}]` : `Custom 3D Model: ${file.name}`
+        }));
+        addToast(`3D CAD File "${file.name}" uploaded to storage!`, 'success');
+      }
+    } catch (err) {
+      addToast(err.message || 'CAD model upload failed', 'error');
+    } finally {
+      setIsUploading3DModel(false);
+    }
   };
 
   // Add more colours to product
@@ -433,6 +515,19 @@ export default function AdminPage() {
         >
           <Package className="w-4 h-4" />
           <span>Product Catalog & Discounts ({products.length})</span>
+        </button>
+
+        {/* Tab: Filament Colors & Stock Manager */}
+        <button
+          onClick={() => setActiveTab('filaments')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 cursor-pointer ${
+            activeTab === 'filaments'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          <span>Filament Colors & Stock ({(filaments || []).length})</span>
         </button>
 
         {/* Tab 3: Registered Users List */}
@@ -753,6 +848,174 @@ export default function AdminPage() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* TAB: FILAMENT COLOUR & STOCK MANAGER */}
+      {activeTab === 'filaments' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <Palette className="w-5 h-5 text-amber-600" />
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  Filament Colour & Inventory Manager
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                  {filaments.length} Formulations
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 max-w-2xl">
+                Add, manage, and delete the physical filament colors available on your 3D printers. Toggle between In Stock and Out of Stock. When out of stock, customers cannot select the color in the store.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAddingFilament(true)}
+              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-xs font-bold flex items-center space-x-2 shadow-md shadow-amber-600/20 transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Add New Filament Colour</span>
+            </button>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Fleet Colours</span>
+                <span className="text-2xl font-black font-mono text-slate-900">{filaments.length}</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                <Palette className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">In Stock (Active)</span>
+                <span className="text-2xl font-black font-mono text-emerald-600">
+                  {filaments.filter(f => f.inStock !== false).length}
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-rose-500 uppercase tracking-wider block">Out of Stock (Disabled)</span>
+                <span className="text-2xl font-black font-mono text-rose-600">
+                  {filaments.filter(f => f.inStock === false).length}
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                <X className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Filament Inventory Table */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h4 className="font-black text-slate-900 text-sm">
+                Filament Spool List ({filaments.length})
+              </h4>
+              <span className="text-xs text-slate-400">
+                Visual swatches sync immediately with single/multi-color product selections
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-6">Colour Swatch</th>
+                    <th className="py-3.5 px-6">Colour Name</th>
+                    <th className="py-3.5 px-6">Hex Code</th>
+                    <th className="py-3.5 px-6">Material Formulation</th>
+                    <th className="py-3.5 px-6">Inventory Status</th>
+                    <th className="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filaments.map((fil) => (
+                    <tr key={fil.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className="w-9 h-9 rounded-2xl border-2 border-slate-200 shadow-2xs shrink-0 relative overflow-hidden"
+                            style={{ backgroundColor: fil.hex }}
+                          >
+                            {fil.inStock === false && (
+                              <span className="absolute inset-0 flex items-center justify-center">
+                                <span className="w-full h-0.5 bg-rose-600 rotate-45 transform" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-6 font-bold text-slate-900 text-sm">
+                        {fil.name}
+                      </td>
+
+                      <td className="py-4 px-6 font-mono text-slate-600">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 font-bold">
+                          {fil.hex}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-6">
+                        <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-100">
+                          {fil.material || 'PLA+ Silk'}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-6">
+                        <button
+                          onClick={() => toggleFilamentStock(fil.id)}
+                          className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                            fil.inStock !== false
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                          }`}
+                          title="Click to toggle stock status"
+                        >
+                          <span className={`w-2 h-2 rounded-full ${fil.inStock !== false ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          <span>{fil.inStock !== false ? 'In Stock (Available)' : 'Out of Stock (Disabled)'}</span>
+                        </button>
+                      </td>
+
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => toggleFilamentStock(fil.id)}
+                            className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                          >
+                            {fil.inStock !== false ? 'Set Out of Stock' : 'Set In Stock'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete filament color "${fil.name}"?`)) {
+                                deleteFilament(fil.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                            title="Delete filament colour"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1416,45 +1679,229 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* IMAGE UPLOAD & PREVIEW (Explicit user requirement!) */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+              {/* MULTIPLE PRODUCT IMAGES UPLOAD & GALLERY (Explicit user requirement!) */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 flex items-center space-x-1.5">
+                  <label className="font-bold text-slate-800 flex items-center space-x-1.5 text-xs">
                     <Upload className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Product Image (Upload File or Enter URL)</span>
+                    <span>Product Images Gallery (Upload Multiple Images to Cloud Storage)</span>
                   </label>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                    {(productForm.images || []).length} Uploaded
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Select Local Image File:</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Choose Multiple Photos:
+                    </label>
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleImageFileUpload}
-                      className="text-xs text-slate-600 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
+                      multiple
+                      disabled={isUploadingProductImage}
+                      onChange={handleMultipleImagesUpload}
+                      className="text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer disabled:opacity-50"
                     />
+                    {isUploadingProductImage && (
+                      <span className="text-[10px] text-indigo-600 font-bold mt-1 block animate-pulse">
+                        Uploading multiple images to storage...
+                      </span>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Or Direct Image URL:</label>
-                    <input
-                      type="url"
-                      value={productForm.image}
-                      onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs"
-                      placeholder="https://images.unsplash.com/..."
-                    />
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Or Add Image by URL:
+                    </label>
+                    <div className="flex space-x-1.5">
+                      <input
+                        type="url"
+                        value={productForm.image}
+                        onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
+                        className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs"
+                        placeholder="https://images.unsplash..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (productForm.image) {
+                            setProductForm(prev => ({
+                              ...prev,
+                              images: Array.from(new Set([...(prev.images || []), prev.image]))
+                            }));
+                            addToast('Added URL image to gallery!', 'info');
+                          }
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px] rounded-xl cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {productForm.image && (
-                  <div className="flex items-center space-x-3 pt-1">
-                    <img src={productForm.image} alt="Preview" className="w-14 h-14 rounded-xl object-cover border border-slate-200" />
-                    <span className="text-[11px] text-slate-500">Live preview of selected product visual</span>
+                {/* Uploaded Gallery Thumbnails Grid */}
+                {(productForm.images || []).length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-600 block">
+                      Uploaded Photo Gallery (Hover to Set Cover or Remove):
+                    </span>
+                    <div className="flex flex-wrap gap-2.5">
+                      {(productForm.images || []).map((imgUrl, idx) => {
+                        const isCover = productForm.image === imgUrl;
+                        return (
+                          <div
+                            key={idx}
+                            className={`relative w-20 h-20 rounded-2xl overflow-hidden border-2 transition-all group ${
+                              isCover ? 'border-indigo-600 ring-2 ring-indigo-200 shadow-md' : 'border-slate-200'
+                            }`}
+                          >
+                            <img src={imgUrl} alt={`Product Angle ${idx + 1}`} className="w-full h-full object-cover" />
+                            
+                            {/* Cover Badge */}
+                            {isCover && (
+                              <span className="absolute top-1 left-1 px-1.5 py-0.2 bg-indigo-600 text-white rounded text-[8px] font-black uppercase shadow-xs">
+                                Cover
+                              </span>
+                            )}
+
+                            {/* Actions Overlay */}
+                            <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
+                              {!isCover && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetCoverImage(imgUrl)}
+                                  className="px-1.5 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[9px] font-bold w-full text-center cursor-pointer"
+                                >
+                                  Make Cover
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveProductImage(idx)}
+                                className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold w-full text-center cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
+
+            {/* COLOR CONFIGURATION: Single Color vs Multiple Color Headings */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
+                    <Palette className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Product Color Headings & Option Mode</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Specify whether customers choose a single color or multiple parts (e.g. Top Color, Bottom Color).
+                  </p>
+                </div>
+
+                {/* Mode Selector */}
+                <div className="flex items-center bg-slate-200 p-0.5 rounded-xl text-xs font-bold shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setProductForm(prev => ({ ...prev, colorMode: 'single' }))}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      productForm.colorMode === 'single'
+                        ? 'bg-white text-indigo-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Single Color
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProductForm(prev => ({ ...prev, colorMode: 'multiple' }))}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      productForm.colorMode === 'multiple'
+                        ? 'bg-white text-indigo-700 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Multiple Colors
+                  </button>
+                </div>
+              </div>
+
+              {productForm.colorMode === 'single' ? (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Single Color Heading Label:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Primary Color, Filament Color, Body Color"
+                    value={productForm.singleHeading}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, singleHeading: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Customers will choose 1 color from the available in-stock filaments.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <label className="text-[11px] font-bold text-slate-700 block">
+                    Custom Color Headings (Top Color, Bottom Color, etc.):
+                  </label>
+                  {productForm.colorHeadings.map((heading, idx) => (
+                    <div key={idx} className="flex items-center space-x-2">
+                      <span className="text-[11px] font-mono text-slate-400 font-bold w-6">{idx + 1}.</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder={idx === 0 ? "e.g. Top Color" : "e.g. Bottom Color"}
+                        value={heading}
+                        onChange={(e) => {
+                          const newHeadings = [...productForm.colorHeadings];
+                          newHeadings[idx] = e.target.value;
+                          setProductForm(prev => ({ ...prev, colorHeadings: newHeadings }));
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs"
+                      />
+                      {productForm.colorHeadings.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProductForm(prev => ({
+                              ...prev,
+                              colorHeadings: prev.colorHeadings.filter((_, i) => i !== idx)
+                            }));
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove heading"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductForm(prev => ({
+                        ...prev,
+                        colorHeadings: [...prev.colorHeadings, `Color Section ${prev.colorHeadings.length + 1}`]
+                      }));
+                    }}
+                    className="text-indigo-600 hover:text-indigo-700 font-bold text-xs flex items-center space-x-1 pt-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Another Color Heading</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
               {/* 3D FILE UPLOAD OPTION (.stl, .obj, .3mf) (Explicit user requirement!) */}
               <div className="p-3.5 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-2">
@@ -1785,6 +2232,128 @@ export default function AdminPage() {
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                 >
                   Dispatch Quote & Reply
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD FILAMENT MODAL */}
+      {isAddingFilament && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 text-xs animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <Palette className="w-5 h-5 text-amber-600" />
+                <h3 className="font-black text-slate-900 text-sm">Add New Filament Colour</h3>
+              </div>
+              <button onClick={() => setIsAddingFilament(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addFilament(newFilamentForm);
+                setIsAddingFilament(false);
+                setNewFilamentForm({
+                  name: '',
+                  hex: '#10B981',
+                  material: 'PLA+ Silk',
+                  inStock: true
+                });
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 block">Colour Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Emerald Sparkle, Midnight Pearl"
+                  value={newFilamentForm.name}
+                  onChange={(e) => setNewFilamentForm({ ...newFilamentForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Colour Picker</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={newFilamentForm.hex}
+                      onChange={(e) => setNewFilamentForm({ ...newFilamentForm, hex: e.target.value })}
+                      className="w-10 h-10 rounded-xl border border-slate-200 cursor-pointer p-0.5"
+                    />
+                    <input
+                      type="text"
+                      required
+                      value={newFilamentForm.hex}
+                      onChange={(e) => setNewFilamentForm({ ...newFilamentForm, hex: e.target.value })}
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Live Preview</label>
+                  <div className="flex items-center space-x-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="w-7 h-7 rounded-full border border-slate-300 shadow-xs" style={{ backgroundColor: newFilamentForm.hex }} />
+                    <span className="text-[11px] font-bold text-slate-700 truncate">{newFilamentForm.name || 'New Swatch'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 block">Material Formulation</label>
+                <select
+                  value={newFilamentForm.material}
+                  onChange={(e) => setNewFilamentForm({ ...newFilamentForm, material: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                >
+                  <option value="PLA+ Silk">PLA+ Silk (High Sheen & Shine)</option>
+                  <option value="PLA+ Matte">PLA+ Matte (Low Gloss PolyTerra)</option>
+                  <option value="PLA+ Standard">PLA+ Standard (Bambu Tough)</option>
+                  <option value="PETG High-Gloss">PETG High-Gloss (Chemical Resistant)</option>
+                  <option value="PETG Carbon">PETG Carbon (Carbon Fiber Reinforced)</option>
+                  <option value="ABS Tough">ABS Tough (Industrial Strength)</option>
+                  <option value="TPU Flexible">TPU Flexible (95A Elastic)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <span className="font-bold text-slate-900 block text-xs">Inventory Status</span>
+                  <span className="text-[10px] text-slate-500">Enable to make this color available in the customer shop</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newFilamentForm.inStock}
+                    onChange={(e) => setNewFilamentForm({ ...newFilamentForm, inStock: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingFilament(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+                >
+                  Save Filament Colour
                 </button>
               </div>
             </form>

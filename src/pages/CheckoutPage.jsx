@@ -15,7 +15,7 @@ import {
 import { useShop } from '../context/ShopContext';
 
 export default function CheckoutPage() {
-  const { cart, cartSubtotal, totalPrintMinutes, placeOrder, currentUser, addToast } = useShop();
+  const { cart, cartSubtotal, totalPrintMinutes, placeOrder, currentUser, setIsLoginModalOpen, addToast } = useShop();
   const navigate = useNavigate();
 
   const [shippingAddress, setShippingAddress] = useState({
@@ -51,6 +51,13 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = (e) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      setIsLoginModalOpen(true);
+      addToast('Please sign in or create an account to process your cart and complete checkout.', 'error');
+      return;
+    }
+
     setIsProcessing(true);
 
     setTimeout(() => {
@@ -77,7 +84,7 @@ export default function CheckoutPage() {
         paymentMethod: paymentMethod === 'card' ? 'Visa / Mastercard (Stripe)' : 'Apple Pay Instant'
       });
 
-      addToast(`Order ${createdOrder.id} successfully queued for 3D printing!`, 'success');
+      addToast(`Order ${createdOrder.id} successfully placed! Your custom 3D prints are entering production.`, 'success');
       navigate(`/track-order?orderId=${createdOrder.id}`);
     }, 1200);
   };
@@ -87,12 +94,34 @@ export default function CheckoutPage() {
       
       <div className="border-b border-slate-200/80 pb-4">
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          Checkout & 3D Print Queue Confirmation
+          Checkout & Order Confirmation
         </h1>
         <p className="text-xs text-slate-500 mt-1">
           Review your custom print options, configure shipping address, and secure payment.
         </p>
       </div>
+
+      {/* Login Guard Warning Banner if user is not authenticated */}
+      {!currentUser && (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-200 text-amber-900 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-900">Sign In Required to Process Cart Items</h4>
+              <p className="text-[11px] text-amber-700">Please sign in or create an account to process your cart items and track your 3D print progress.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLoginModalOpen(true)}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
+          >
+            Sign In / Register
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
@@ -275,7 +304,7 @@ export default function CheckoutPage() {
         {/* Right Column: Order Review & Submit */}
         <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-5 text-xs">
           <h3 className="text-sm font-black text-slate-900 pb-2 border-b border-slate-100 flex items-center justify-between">
-            <span>Print Queue Summary</span>
+            <span>Order Summary</span>
             <span className="font-mono text-indigo-600 font-bold">{cart.length} creations</span>
           </h3>
 
@@ -335,11 +364,11 @@ export default function CheckoutPage() {
             {isProcessing ? (
               <div className="flex items-center space-x-2">
                 <Printer className="w-5 h-5 animate-spin" />
-                <span>Slicing & Assigning Printer...</span>
+                <span>Processing Order & Assigning Printer...</span>
               </div>
             ) : (
               <>
-                <span>Confirm & Queue 3D Print Job</span>
+                <span>Confirm & Buy Now</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -347,7 +376,7 @@ export default function CheckoutPage() {
 
           <div className="flex items-center justify-center space-x-2 text-[10px] text-slate-400 pt-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>End-to-End Slicing Guarantee • Immediate Queue Priority</span>
+            <span>End-to-End Slicing Guarantee • Fast Production Priority</span>
           </div>
 
         </div>

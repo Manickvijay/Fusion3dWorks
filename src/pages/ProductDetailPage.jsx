@@ -22,11 +22,23 @@ import {
   Layers,
   AlertCircle,
   Sliders,
-  Edit3
+  Edit3,
+  Check
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import Interactive3DViewer from '../components/common/Interactive3DViewer';
 import ProductCard from '../components/common/ProductCard';
+
+// Helper to calculate color contrast for checkmarks on swatches
+const isLightColor = (hex) => {
+  if (!hex || typeof hex !== 'string') return false;
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16) || 0;
+  const g = parseInt(clean.substring(2, 4), 16) || 0;
+  const b = parseInt(clean.substring(4, 6), 16) || 0;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6;
+};
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -38,7 +50,9 @@ export default function ProductDetailPage() {
     toggleWishlist,
     addToast,
     currentUser,
-    submitProductReview
+    submitProductReview,
+    filaments,
+    setIsLoginModalOpen
   } = useShop();
 
   const product = products.find(p => p.id === id) || products[0];
@@ -146,7 +160,9 @@ export default function ProductDetailPage() {
   }
 
   const isWishlisted = (wishlist || []).includes(product.id);
-  const galleryImages = (product.gallery && product.gallery.length > 0)
+  const galleryImages = (product.images && product.images.length > 0)
+    ? product.images
+    : (product.gallery && product.gallery.length > 0)
     ? product.gallery
     : (product.image ? [product.image] : []);
 
@@ -221,6 +237,12 @@ export default function ProductDetailPage() {
 
   const handleBuyNow = (e) => {
     if (!validateCustomization()) return;
+
+    if (!currentUser) {
+      setIsLoginModalOpen(true);
+      addToast('Please sign in or create an account to process your cart items and complete checkout.', 'info');
+      return;
+    }
 
     addToCart(
       product,
@@ -720,43 +742,86 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Dynamic Customizable Color Sections */}
-            {product.customizableSections && product.customizableSections.map(section => {
-              const activeHex = selectedColors[section.id] || section.defaultColor;
-              const activeColorObj = section.options ? section.options.find(o => o.hex === activeHex) : null;
+            {/* Dynamic Filament Color Swatch Selection */}
+            {(() => {
+              // Determine active color sections (Single vs Multiple)
+              const isSingle = product.colorMode === 'single' || (product.customizableSections || []).length <= 1;
+              const sections = isSingle
+                ? [{ id: 'color_main', name: product.singleHeading || product.customizableSections?.[0]?.name || 'Filament Colour' }]
+                : (product.customizableSections && product.customizableSections.length > 0
+                    ? product.customizableSections
+                    : (product.colorHeadings || ['Top Colour', 'Bottom Colour']).map((h, i) => ({ id: `color_part_${i}`, name: h }))
+                  );
 
-              return (
-                <div key={section.id} className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800">{section.name}:</span>
-                    <span className="text-indigo-600 font-bold">
-                      {activeColorObj?.name || 'Selected'}
-                    </span>
-                  </div>
+              return sections.map((section) => {
+                const activeHex = selectedColors[section.id] || selectedColors['color_main'] || (section.defaultColor) || filaments?.[0]?.hex || '#F59E0B';
+                const activeFilament = (filaments || []).find((f) => f.hex?.toLowerCase() === activeHex?.toLowerCase());
 
-                  <div className="flex flex-wrap gap-2.5">
-                    {(section.options || []).map((opt, idx) => (
-                      <button
-                        key={opt?.hex || `opt-${idx}`}
-                        type="button"
-                        onClick={() => handleColorChange(section.id, opt.hex)}
-                        className={`group relative flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                          activeHex === opt.hex
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-400'
-                        }`}
-                      >
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0"
-                          style={{ backgroundColor: opt.hex }}
-                        />
-                        <span>{opt.name}</span>
-                      </button>
-                    ))}
+                return (
+                  <div key={section.id} className="space-y-2.5 pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800 text-xs tracking-tight">
+                        {section.name}:
+                      </span>
+                      <span className="text-indigo-600 font-bold font-mono text-[11px] bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                        {activeFilament ? `${activeFilament.name} (${activeFilament.material})` : 'Select Color'}
+                      </span>
+                    </div>
+
+                    {/* Filament Color Swatches: Pure visual swatches (show colour not text), disabled if out of stock */}
+                    <div className="flex flex-wrap gap-2.5 items-center">
+                      {(filaments || []).map((fil) => {
+                        const isOutOfStock = fil.inStock === false;
+                        const isSelected = activeHex?.toLowerCase() === fil.hex?.toLowerCase();
+                        const isLight = isLightColor(fil.hex);
+
+                        return (
+                          <button
+                            key={fil.id}
+                            type="button"
+                            disabled={isOutOfStock}
+                            onClick={() => handleColorChange(section.id, fil.hex)}
+                            title={
+                              isOutOfStock
+                                ? `${fil.name} - Out of stock`
+                                : `${fil.name} • ${fil.material} (In Stock)`
+                            }
+                            className={`group relative w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer ${
+                              isOutOfStock
+                                ? 'opacity-30 cursor-not-allowed border-rose-400 border-dashed relative overflow-hidden bg-slate-100'
+                                : isSelected
+                                ? 'ring-2 ring-indigo-600 ring-offset-2 scale-110 shadow-md border-white'
+                                : 'border-slate-300 hover:scale-105 hover:border-slate-400 shadow-2xs'
+                            }`}
+                            style={{ backgroundColor: fil.hex }}
+                          >
+                            {/* Disabled Out of Stock Strikethrough Slash */}
+                            {isOutOfStock && (
+                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="w-full h-0.5 bg-rose-600 rotate-45 transform" />
+                              </span>
+                            )}
+
+                            {/* Active Selected Checkmark */}
+                            {isSelected && !isOutOfStock && (
+                              <Check
+                                className="w-4 h-4 stroke-[3]"
+                                style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center space-x-2 text-[10px] text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Choose from available spool filaments. Crossed-out colors are out of stock.</span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
 
             {/* Action Buttons: Admin Management Panel OR Customer Add to Cart */}
             <div className="pt-4 border-t border-slate-100 space-y-3">
@@ -808,7 +873,7 @@ export default function ProductDetailPage() {
                       className="flex-1 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 border border-slate-700 text-center"
                     >
                       <Layers className="w-3.5 h-3.5" />
-                      <span>View Print Queue</span>
+                      <span>Admin Control Center</span>
                     </Link>
                   </div>
                 </div>

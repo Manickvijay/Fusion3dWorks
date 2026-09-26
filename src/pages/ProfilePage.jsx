@@ -17,7 +17,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Lock,
-  Key
+  Key,
+  Camera
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import CancelOrderModal from '../components/common/CancelOrderModal';
@@ -38,8 +39,30 @@ export default function ProfilePage() {
     setIsLoginModalOpen,
     updateUserProfile,
     changePassword,
-    authToken
+    authToken,
+    uploadStorageFile,
+    addToast
   } = useShop();
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingAvatar(true);
+    try {
+      const res = await uploadStorageFile(file, 'avatars');
+      if (res && (res.fileUrl || res.url)) {
+        const finalUrl = res.fileUrl || res.url;
+        await updateUserProfile({ avatar: finalUrl });
+        addToast('Profile picture uploaded and saved to storage!', 'success');
+      }
+    } catch (err) {
+      addToast(err.message || 'Avatar upload failed', 'error');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
@@ -124,15 +147,35 @@ export default function ProfilePage() {
       <div className="relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-800 shadow-xl overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
         
         <div className="flex items-center space-x-4 sm:space-x-6">
-          <div className="relative">
+          <div className="relative group">
             <img
               src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&auto=format&fit=crop&q=80'}
               alt={profileData.name}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-indigo-400/50 shadow-xl"
             />
-            <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-5 h-5 rounded-full border-2 border-slate-900 flex items-center justify-center">
+            {/* Camera Overlay Button to upload new avatar */}
+            <label
+              title="Upload new profile picture"
+              className="absolute inset-0 bg-slate-950/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white"
+            >
+              <Camera className="w-5 h-5 mb-0.5 text-indigo-300" />
+              <span className="text-[9px] font-bold">Change</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                disabled={isUploadingAvatar}
+                className="hidden"
+              />
+            </label>
+            <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-5 h-5 rounded-full border-2 border-slate-900 flex items-center justify-center pointer-events-none">
               <CheckCircle2 className="w-3 h-3 text-white" />
             </div>
+            {isUploadingAvatar && (
+              <div className="absolute inset-0 bg-indigo-900/80 rounded-3xl flex items-center justify-center text-white text-[10px] font-bold">
+                Uploading...
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -226,10 +269,10 @@ export default function ProfilePage() {
               </p>
             </div>
             <Link
-              to="/"
+              to="/custom-print"
               className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors"
             >
-              + Queue New Print
+              + Order New Custom Print
             </Link>
           </div>
 
