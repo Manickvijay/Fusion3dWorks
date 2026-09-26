@@ -30,8 +30,7 @@ export default function Navbar() {
     wishlist,
     backendStatus,
     isBackendSyncing,
-    syncWithBackend,
-    backendUrl
+    syncWithBackend
   } = useShop();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +65,7 @@ export default function Navbar() {
         <div className="flex items-center space-x-2.5 text-slate-400">
           <button
             onClick={() => syncWithBackend(true)}
-            title={`Render Backend: ${backendUrl}\nClick to refresh connection`}
+            title={`Backend Status: ${backendStatus}\nClick to refresh connection`}
             className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-[10px] text-slate-300 transition-colors shadow-xs cursor-pointer"
           >
             <span
@@ -80,10 +79,10 @@ export default function Navbar() {
             />
             <span className="font-mono text-[10px]">
               {backendStatus === 'connected'
-                ? 'Render Live'
+                ? 'Backend Live'
                 : isBackendSyncing
                 ? 'Syncing...'
-                : 'Render Backend'}
+                : 'Backend Connected'}
             </span>
             <RefreshCw className={`w-2.5 h-2.5 text-slate-400 ${isBackendSyncing ? 'animate-spin' : ''}`} />
           </button>
