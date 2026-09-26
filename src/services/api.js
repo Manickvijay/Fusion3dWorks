@@ -138,6 +138,36 @@ export const api = {
       request(`/api/orders/${id}`, {
         method: 'DELETE',
       }),
+    updateEnterprise: (id, data) =>
+      request(`/api/orders/${id}/enterprise`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    addNote: (id, text) =>
+      request(`/api/orders/${id}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+    getAnalytics: () => request('/api/orders-analytics'),
+  },
+
+  categories: {
+    getAll: () => request('/api/categories'),
+    getById: (id) => request(`/api/categories/${id}`),
+    create: (data) =>
+      request('/api/categories', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id, data) =>
+      request(`/api/categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id) =>
+      request(`/api/categories/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   printers: {

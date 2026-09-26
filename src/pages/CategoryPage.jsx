@@ -8,26 +8,27 @@ export default function CategoryPage() {
   const { categoryId } = useParams();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q');
-  const { products } = useShop();
+  const { products, categories } = useShop();
 
   let displayedProducts = [...products];
   let pageTitle = 'All 3D Creations';
   let pageSubtitle = 'Precision extruded custom creations';
 
   if (categoryId) {
-    displayedProducts = products.filter(p => p.category === categoryId);
-    if (categoryId === '3d-keychain') {
-      pageTitle = 'Custom 3D Keychains';
-      pageSubtitle = 'Personalized dual-color typography and scannable code keychains';
-    } else if (categoryId === 'cake-toppers') {
-      pageTitle = 'Custom Cake Toppers';
-      pageSubtitle = 'Food-safe organic bio-PLA script toppers for weddings & birthdays';
-    } else if (categoryId === 'name-boards') {
-      pageTitle = 'Illuminated 3D Name Boards';
-      pageSubtitle = 'Freestanding desk nameplates with backlighting channels';
-    } else if (categoryId === '3d-gift') {
-      pageTitle = '3D Gifts & Sculptures';
-      pageSubtitle = 'Bespoke lithophane photo lamps, geometric sculptures, and desk art';
+    const matchedCategory = (categories || []).find(
+      c => c.slug === categoryId || c.id === categoryId
+    );
+
+    displayedProducts = products.filter(
+      p => p.category === categoryId || (matchedCategory && p.category === matchedCategory.slug)
+    );
+
+    if (matchedCategory) {
+      pageTitle = matchedCategory.name;
+      pageSubtitle = matchedCategory.description || 'Precision extruded custom creations in this collection';
+    } else {
+      pageTitle = categoryId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      pageSubtitle = `Custom 3D creations in ${pageTitle}`;
     }
   } else if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -56,7 +57,7 @@ export default function CategoryPage() {
           <Box className="w-12 h-12 text-slate-300 mx-auto" />
           <h3 className="font-bold text-slate-700">No matching creations found</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Try searching for "keychain", "cake", "name board", or browse all items.
+            Try searching for other custom products or browse all collections.
           </p>
           <Link to="/" className="inline-block px-5 py-2.5 bg-indigo-600 text-white rounded-2xl text-xs font-bold mt-2">
             View All Products

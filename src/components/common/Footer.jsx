@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Sparkles, Shield, Clock, RotateCcw, Heart } from 'lucide-react';
+import { useShop } from '../../context/ShopContext';
 
 export default function Footer() {
+  const { categories } = useShop();
   return (
     <footer className="bg-slate-950 text-slate-400 text-xs border-t border-slate-900 mt-20">
       
@@ -78,13 +80,15 @@ export default function Footer() {
         </div>
 
         <div>
-          <h5 className="font-bold text-white mb-3 uppercase tracking-wider text-[11px]">3D Products</h5>
+          <h5 className="font-bold text-white mb-3 uppercase tracking-wider text-[11px]">3D Categories</h5>
           <ul className="space-y-2 text-slate-400">
-            <li><Link to="/category/3d-keychain" className="hover:text-white transition-colors">3D Keychains</Link></li>
-            <li><Link to="/category/cake-toppers" className="hover:text-white transition-colors">Cake Toppers</Link></li>
-            <li><Link to="/category/name-boards" className="hover:text-white transition-colors">Illuminated Name Boards</Link></li>
-            <li><Link to="/category/3d-gift" className="hover:text-white transition-colors">Lithophane Lamps</Link></li>
-            <li><Link to="/category/3d-gift" className="hover:text-white transition-colors">Infinity Heart Sculptures</Link></li>
+            {(categories || []).map((cat) => (
+              <li key={cat.id}>
+                <Link to={`/category/${cat.slug || cat.id}`} className="hover:text-white transition-colors">
+                  {cat.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 

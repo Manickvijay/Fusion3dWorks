@@ -595,9 +595,12 @@ export default function ProductDetailPage() {
           {/* Header & Pricing */}
           <div className="space-y-2 border-b border-slate-200/80 pb-5">
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-black uppercase tracking-wider text-indigo-600">
-                {product.categoryLabel}
-              </span>
+              <Link
+                to={`/category/${product.category}`}
+                className="text-xs font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                {product.categoryLabel || product.category}
+              </Link>
               {product.badge && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
                   {product.badge}

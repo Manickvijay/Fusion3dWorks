@@ -207,6 +207,53 @@ const db = {
 
   products: [...INITIAL_PRODUCTS],
 
+  categories: [
+    {
+      id: 'cat-3d-keychain',
+      slug: '3d-keychain',
+      name: '3D Keychains',
+      description: 'Personalized dual-color typography and scannable code keychains',
+      imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+      badge: 'Best Seller',
+      displayOrder: 1,
+      isActive: true,
+      createdAt: '2026-01-01',
+    },
+    {
+      id: 'cat-cake-toppers',
+      slug: 'cake-toppers',
+      name: 'Cake Toppers',
+      description: 'Food-safe organic bio-PLA script toppers for weddings & birthdays',
+      imageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=600&auto=format&fit=crop&q=80',
+      badge: 'Celebrations',
+      displayOrder: 2,
+      isActive: true,
+      createdAt: '2026-01-02',
+    },
+    {
+      id: 'cat-name-boards',
+      slug: 'name-boards',
+      name: 'Name Boards & Signs',
+      description: 'Freestanding desk nameplates with backlighting channels',
+      imageUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&auto=format&fit=crop&q=80',
+      badge: 'Interior Desk',
+      displayOrder: 3,
+      isActive: true,
+      createdAt: '2026-01-03',
+    },
+    {
+      id: 'cat-3d-gift',
+      slug: '3d-gift',
+      name: '3D Gifts & Sculptures',
+      description: 'Bespoke lithophane photo lamps, geometric sculptures, and desk art',
+      imageUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop&q=80',
+      badge: 'Art & Memory',
+      displayOrder: 4,
+      isActive: true,
+      createdAt: '2026-01-04',
+    },
+  ],
+
   filaments: [
     { id: 'fil-1', name: 'Silk Gold', hex: '#F59E0B', material: 'PLA+ Silk', inStock: true },
     { id: 'fil-2', name: 'Matte Obsidian', hex: '#0F172A', material: 'PLA+ Matte', inStock: true },
@@ -904,18 +951,166 @@ async function startServer() {
   });
 
   // ==========================================
+  // 4.5. Categories Endpoints (CRUD)
+  // ==========================================
+
+  app.get('/api/categories', (_req, res) => {
+    const list = db.categories.map((cat) => {
+      const count = db.products.filter(
+        (p) => p.category === cat.slug || p.category === cat.id
+      ).length;
+      return {
+        ...cat,
+        count,
+      };
+    }).sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99));
+
+    res.json(list);
+  });
+
+  app.get('/api/categories/:id', (req, res) => {
+    const cat = db.categories.find(
+      (c) => c.id === req.params.id || c.slug === req.params.id
+    );
+    if (!cat) return res.status(404).json({ message: 'Category not found' });
+
+    const matchingProducts = db.products.filter(
+      (p) => p.category === cat.slug || p.category === cat.id
+    );
+
+    res.json({
+      ...cat,
+      count: matchingProducts.length,
+      products: matchingProducts,
+    });
+  });
+
+  app.post('/api/categories', (req, res) => {
+    const { name, slug, imageUrl, description, badge, displayOrder } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Category name is required' });
+    }
+
+    const cleanSlug = (slug || name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const existing = db.categories.find((c) => c.slug === cleanSlug);
+    if (existing) {
+      return res.status(400).json({ message: 'Category with this slug already exists' });
+    }
+
+    const newCategory = {
+      id: `cat-${Date.now()}`,
+      slug: cleanSlug,
+      name: name.trim(),
+      description: description || '',
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+      badge: badge || 'New',
+      displayOrder: Number(displayOrder) || (db.categories.length + 1),
+      isActive: true,
+      createdAt: new Date().toISOString().split('T')[0],
+      count: 0,
+    };
+
+    db.categories.push(newCategory);
+    res.status(201).json(newCategory);
+  });
+
+  app.put('/api/categories/:id', (req, res) => {
+    const index = db.categories.findIndex(
+      (c) => c.id === req.params.id || c.slug === req.params.id
+    );
+    if (index === -1) return res.status(404).json({ message: 'Category not found' });
+
+    const current = db.categories[index];
+    const { name, slug, imageUrl, description, badge, displayOrder, isActive } = req.body || {};
+
+    const updatedSlug = slug
+      ? slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      : current.slug;
+
+    // If slug changed, update products that refer to old slug
+    if (updatedSlug !== current.slug) {
+      db.products.forEach((p) => {
+        if (p.category === current.slug) {
+          p.category = updatedSlug;
+          if (name) p.categoryLabel = name;
+        }
+      });
+    }
+
+    const updated = {
+      ...current,
+      name: name !== undefined ? name.trim() : current.name,
+      slug: updatedSlug,
+      imageUrl: imageUrl !== undefined ? imageUrl : current.imageUrl,
+      description: description !== undefined ? description : current.description,
+      badge: badge !== undefined ? badge : current.badge,
+      displayOrder: displayOrder !== undefined ? Number(displayOrder) : current.displayOrder,
+      isActive: isActive !== undefined ? Boolean(isActive) : current.isActive,
+      updatedAt: new Date().toISOString().split('T')[0],
+    };
+
+    db.categories[index] = updated;
+
+    const count = db.products.filter(
+      (p) => p.category === updated.slug || p.category === updated.id
+    ).length;
+
+    res.json({ ...updated, count });
+  });
+
+  app.delete('/api/categories/:id', (req, res) => {
+    const index = db.categories.findIndex(
+      (c) => c.id === req.params.id || c.slug === req.params.id
+    );
+    if (index === -1) return res.status(404).json({ message: 'Category not found' });
+
+    db.categories.splice(index, 1);
+    res.status(204).send();
+  });
+
+  // ==========================================
   // 5. Orders Endpoints
   // ==========================================
 
   app.get('/api/orders', (req, res) => {
-    const { customerEmail } = req.query;
+    const { customerEmail, status, machine, priority, search } = req.query;
+    let list = [...db.orders];
+
     if (customerEmail && typeof customerEmail === 'string') {
-      const filtered = db.orders.filter(
+      list = list.filter(
         (o) => (o.customerEmail || '').toLowerCase() === customerEmail.toLowerCase()
       );
-      return res.json(filtered);
     }
-    res.json(db.orders);
+
+    if (status && typeof status === 'string' && status !== 'all') {
+      list = list.filter((o) => o.status === status);
+    }
+
+    if (machine && typeof machine === 'string' && machine !== 'all') {
+      list = list.filter((o) => (o.assignedPrinter || '').toLowerCase().includes(machine.toLowerCase()));
+    }
+
+    if (priority && typeof priority === 'string' && priority !== 'all') {
+      list = list.filter((o) => (o.priority || 'Standard').toLowerCase() === priority.toLowerCase());
+    }
+
+    if (search && typeof search === 'string') {
+      const q = search.toLowerCase().trim();
+      list = list.filter((o) =>
+        o.id.toLowerCase().includes(q) ||
+        (o.customerName || '').toLowerCase().includes(q) ||
+        (o.customerEmail || '').toLowerCase().includes(q) ||
+        (o.customerPhone || '').toLowerCase().includes(q) ||
+        (o.trackingNumber || '').toLowerCase().includes(q) ||
+        (o.items || []).some((item: any) => (item.name || '').toLowerCase().includes(q))
+      );
+    }
+
+    res.json(list);
   });
 
   app.get('/api/orders/:id', (req, res) => {
@@ -1176,6 +1371,119 @@ async function startServer() {
   app.delete('/api/orders/:id', (req, res) => {
     db.orders = db.orders.filter((o) => o.id !== req.params.id);
     res.status(204).send();
+  });
+
+  // Enterprise Order Management & Inspection
+  app.patch('/api/orders/:id/enterprise', (req, res) => {
+    const index = db.orders.findIndex((o) => o.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Order not found' });
+
+    const order = db.orders[index];
+    const {
+      priority,
+      assignedPrinter,
+      deliveryPartner,
+      trackingNumber,
+      estimatedDelivery,
+      status,
+      paymentStatus,
+      internalNote,
+      qaTolerance,
+      qaPassed,
+      qaNotes,
+    } = req.body || {};
+
+    if (priority) order.priority = priority;
+    if (assignedPrinter !== undefined) order.assignedPrinter = assignedPrinter;
+    if (deliveryPartner) order.deliveryPartner = deliveryPartner;
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+    if (estimatedDelivery) order.estimatedDelivery = estimatedDelivery;
+    if (paymentStatus) order.paymentStatus = paymentStatus;
+
+    if (qaPassed !== undefined) {
+      order.qaPassed = qaPassed;
+      order.qaDetails = {
+        tolerance: qaTolerance || '< 0.10mm (Pass)',
+        inspectedAt: new Date().toISOString(),
+        notes: qaNotes || 'Certified dimensional calibration & adhesion verified.',
+      };
+    }
+
+    if (internalNote && internalNote.trim()) {
+      if (!order.internalNotes) order.internalNotes = [];
+      order.internalNotes.push({
+        id: `note-${Date.now()}`,
+        text: internalNote.trim(),
+        createdAt: new Date().toISOString(),
+        author: 'Administrator',
+      });
+    }
+
+    if (status && status !== order.status) {
+      order.status = status;
+      order.statusProgress = STAGE_PROGRESS_MAP[status] ?? order.statusProgress;
+      const targetIndex = PIPELINE_STAGES.indexOf(status);
+      if (targetIndex >= 0 && order.timeline) {
+        order.timeline = order.timeline.map((step, idx) => {
+          if (idx <= targetIndex) {
+            return {
+              ...step,
+              done: true,
+              time: step.time === 'Pending' ? new Date().toTimeString().slice(0, 5) : step.time,
+              note: idx === targetIndex ? (internalNote || `Stage advanced to: ${status}`) : step.note,
+            };
+          }
+          return step;
+        });
+      }
+    }
+
+    db.orders[index] = order;
+    res.json(order);
+  });
+
+  // Enterprise Admin Notes
+  app.post('/api/orders/:id/notes', (req, res) => {
+    const index = db.orders.findIndex((o) => o.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Order not found' });
+
+    const order = db.orders[index];
+    const text = req.body?.text || '';
+    if (!text.trim()) return res.status(400).json({ message: 'Note text required' });
+
+    if (!order.internalNotes) order.internalNotes = [];
+    const newNote = {
+      id: `note-${Date.now()}`,
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+      author: req.body?.author || 'Administrator',
+    };
+    order.internalNotes.push(newNote);
+
+    db.orders[index] = order;
+    res.json(newNote);
+  });
+
+  // Enterprise Analytics Summary
+  app.get('/api/orders-analytics', (_req, res) => {
+    const totalOrders = db.orders.length;
+    const totalRevenue = db.orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const activeJobs = db.orders.filter((o) => o.status !== 'Delivered' && o.status !== 'Cancelled').length;
+    const printingJobs = db.orders.filter((o) => o.status === 'Printing Started').length;
+    const readyForQA = db.orders.filter((o) => o.status === 'Printing Complete').length;
+    const deliveredCount = db.orders.filter((o) => o.status === 'Delivered').length;
+    const printersUtilized = db.printers.filter((p) => p.status === 'Printing').length;
+
+    res.json({
+      totalOrders,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      activeJobs,
+      printingJobs,
+      readyForQA,
+      deliveredCount,
+      printersUtilized,
+      totalPrinters: db.printers.length,
+    });
   });
 
   // ==========================================

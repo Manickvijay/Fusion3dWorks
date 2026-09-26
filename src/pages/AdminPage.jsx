@@ -22,7 +22,12 @@ import {
   Search,
   MessageSquare,
   BarChart3,
-  Activity
+  Activity,
+  Layers,
+  ShieldCheck,
+  FileText,
+  Truck,
+  Copy
 } from 'lucide-react';
 import {
   BarChart,
@@ -45,8 +50,14 @@ export default function AdminPage() {
     addProduct,
     updateProduct,
     deleteProduct,
+    categories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     orders,
     adminUpdateOrderStatus,
+    updateEnterpriseOrder,
+    addOrderAdminNote,
     assignOrderToPrinter,
     qaCheckOrder,
     deleteOrder,
@@ -72,8 +83,32 @@ export default function AdminPage() {
     addToast
   } = useShop();
 
-  // Admin opens directly to the 3D printing list (explicit requirement: "Admin only need to see the 3d printing list")
-  const [activeTab, setActiveTab] = useState('worklist'); // 'worklist' | 'products' | 'filaments' | 'users' | 'inquiries' | 'dashboard'
+  // Admin Navigation Tabs: Includes Dedicated Enterprise Order View & Category Manager
+  const [activeTab, setActiveTab] = useState('worklist'); // 'worklist' | 'orders-enterprise' | 'categories' | 'products' | 'filaments' | 'users' | 'inquiries' | 'dashboard'
+
+  // Categories Manager Modal & Form State
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    slug: '',
+    imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+    description: '',
+    badge: 'Trending',
+    displayOrder: 1
+  });
+  const [isUploadingCategoryImage, setIsUploadingCategoryImage] = useState(false);
+
+  // Enterprise Order View State
+  const [selectedEnterpriseOrderId, setSelectedEnterpriseOrderId] = useState(null);
+  const [orderSearchTerm, setOrderSearchTerm] = useState('');
+  const [orderStageFilter, setOrderStageFilter] = useState('all');
+  const [orderPriorityFilter, setOrderPriorityFilter] = useState('all');
+  const [orderMachineFilter, setOrderMachineFilter] = useState('all');
+  const [newAdminNote, setNewAdminNote] = useState('');
+  const [qaToleranceInput, setQaToleranceInput] = useState('< 0.10mm');
+  const [qaNotesInput, setQaNotesInput] = useState('');
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Inquiry Quote/Reply Modal State
   const [replyingInquiry, setReplyingInquiry] = useState(null);
@@ -408,6 +443,152 @@ export default function AdminPage() {
     addToast('3D Print Work List exported to CSV!', 'success');
   };
 
+  // Category Management Handlers
+  const handleOpenCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      slug: '',
+      imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+      description: '',
+      badge: 'Trending',
+      displayOrder: (categories || []).length + 1
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name || '',
+      slug: cat.slug || '',
+      imageUrl: cat.imageUrl || cat.image || '',
+      description: cat.description || '',
+      badge: cat.badge || 'Trending',
+      displayOrder: cat.displayOrder || 1
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    if (!categoryForm.name.trim()) {
+      addToast('Category name is required', 'error');
+      return;
+    }
+
+    try {
+      if (editingCategory) {
+        await updateCategory(editingCategory.id, categoryForm);
+      } else {
+        await createCategory(categoryForm);
+      }
+      setIsCategoryModalOpen(false);
+    } catch {
+      // error handled in context
+    }
+  };
+
+  const handleDeleteCategory = async (catId, catName) => {
+    if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
+      await deleteCategory(catId);
+    }
+  };
+
+  const handleCategoryImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingCategoryImage(true);
+    try {
+      const res = await uploadStorageFile(file, 'categories');
+      if (res?.fileUrl || res?.url) {
+        const url = res.fileUrl || res.url;
+        setCategoryForm(prev => ({ ...prev, imageUrl: url }));
+        addToast('Category image uploaded successfully!', 'success');
+      }
+    } catch (err) {
+      addToast(err.message || 'Image upload failed', 'error');
+    } finally {
+      setIsUploadingCategoryImage(false);
+    }
+  };
+
+  // Enterprise Orders Handlers & Filters
+  const enterpriseOrdersList = useMemo(() => {
+    let list = [...(orders || [])];
+
+    if (orderSearchTerm.trim()) {
+      const q = orderSearchTerm.toLowerCase().trim();
+      list = list.filter(o => 
+        o.id.toLowerCase().includes(q) ||
+        (o.customerName || '').toLowerCase().includes(q) ||
+        (o.customerEmail || '').toLowerCase().includes(q) ||
+        (o.customerPhone || '').toLowerCase().includes(q) ||
+        (o.trackingNumber || '').toLowerCase().includes(q) ||
+        (o.items || []).some(item => (item.name || '').toLowerCase().includes(q))
+      );
+    }
+
+    if (orderStageFilter !== 'all') {
+      list = list.filter(o => o.status === orderStageFilter);
+    }
+
+    if (orderPriorityFilter !== 'all') {
+      list = list.filter(o => (o.priority || 'Standard').toLowerCase().includes(orderPriorityFilter.toLowerCase()));
+    }
+
+    if (orderMachineFilter !== 'all') {
+      list = list.filter(o => (o.assignedPrinter || '').toLowerCase().includes(orderMachineFilter.toLowerCase()));
+    }
+
+    return list;
+  }, [orders, orderSearchTerm, orderStageFilter, orderPriorityFilter, orderMachineFilter]);
+
+  const activeEnterpriseOrder = useMemo(() => {
+    if (!orders || orders.length === 0) return null;
+    if (selectedEnterpriseOrderId) {
+      const found = orders.find(o => o.id === selectedEnterpriseOrderId);
+      if (found) return found;
+    }
+    return enterpriseOrdersList[0] || orders[0];
+  }, [orders, selectedEnterpriseOrderId, enterpriseOrdersList]);
+
+  const handleTogglePriority = async (orderId, currentPriority) => {
+    const nextPriority = currentPriority === 'Rush / High Priority' ? 'Standard' : 'Rush / High Priority';
+    await updateEnterpriseOrder(orderId, { priority: nextPriority });
+  };
+
+  const handleEnterpriseStatusChange = async (orderId, newStatus) => {
+    await updateEnterpriseOrder(orderId, { status: newStatus });
+  };
+
+  const handleEnterpriseMachineAssign = async (orderId, printerName) => {
+    await updateEnterpriseOrder(orderId, { assignedPrinter: printerName });
+    const p = (printers || []).find(pr => pr.name === printerName || pr.id === printerName);
+    if (p) {
+      assignOrderToPrinter(orderId, p.id);
+    }
+  };
+
+  const handleEnterpriseCarrierUpdate = async (orderId, partner, tracking) => {
+    await updateEnterpriseOrder(orderId, { deliveryPartner: partner, trackingNumber: tracking });
+  };
+
+  const handleAddAdminNote = async (orderId) => {
+    if (!newAdminNote.trim()) return;
+    await addOrderAdminNote(orderId, newAdminNote.trim());
+    setNewAdminNote('');
+  };
+
+  const handleCertifyQA = async (orderId, passed) => {
+    await updateEnterpriseOrder(orderId, {
+      qaPassed: passed,
+      qaTolerance: qaToleranceInput,
+      qaNotes: qaNotesInput || (passed ? 'Calipers verified within ISO 3D print specs.' : 'Surface defect or tolerance deviation detected.')
+    });
+    setQaNotesInput('');
+  };
+
   // Filtered users
   const filteredUsers = useMemo(() => {
     if (!userSearchQuery) return registeredUsers || [];
@@ -502,6 +683,32 @@ export default function AdminPage() {
         >
           <Clock className="w-4 h-4" />
           <span>3D Printing List & Scheduling ({printQueue.length})</span>
+        </button>
+
+        {/* Tab 1.5: Enterprise Level Order View */}
+        <button
+          onClick={() => setActiveTab('orders-enterprise')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 cursor-pointer ${
+            activeTab === 'orders-enterprise'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Enterprise Order View ({orders.length})</span>
+        </button>
+
+        {/* Tab: Categories & Homepage Manager */}
+        <button
+          onClick={() => setActiveTab('categories')}
+          className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 cursor-pointer ${
+            activeTab === 'categories'
+              ? 'bg-purple-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Categories & Home ({(categories || []).length})</span>
         </button>
 
         {/* Tab 2: Products & Custom Options */}
@@ -812,12 +1019,23 @@ export default function AdminPage() {
                       <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
                         <button
                           onClick={() => {
+                            setSelectedEnterpriseOrderId(job.orderId);
+                            setActiveTab('orders-enterprise');
+                          }}
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold cursor-pointer inline-flex items-center space-x-1 shadow-2xs"
+                          title="Open Full Enterprise Order Dossier"
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>Dossier</span>
+                        </button>
+                        <button
+                          onClick={() => {
                             const bambu = printers.find(p => p.name.includes('Bambu') || p.id.includes('BAMBU')) || printers[0];
                             if (bambu) {
                               assignOrderToPrinter(job.orderId, bambu.id);
                             }
                           }}
-                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                          className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
                           title="Assign to Bambu Lab A1 and start printing"
                         >
                           Print A1
@@ -851,7 +1069,716 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB: FILAMENT COLOUR & STOCK MANAGER */}
+      {/* TAB: ENTERPRISE LEVEL ORDER VIEW & INSPECTION */}
+      {activeTab === 'orders-enterprise' && (
+        <div className="space-y-6">
+          {/* Enterprise KPI Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Orders</span>
+              <div className="text-xl font-black text-slate-900 font-mono">{orders.length}</div>
+              <p className="text-[10px] text-slate-500 font-medium">All logged customer jobs</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gross Volume</span>
+              <div className="text-xl font-black text-emerald-600 font-mono">${totalRevenue.toFixed(2)}</div>
+              <p className="text-[10px] text-emerald-600 font-medium">Recorded sales revenue</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Printing on Farm</span>
+              <div className="text-xl font-black text-amber-600 font-mono">
+                {orders.filter(o => o.status === 'Printing Started').length}
+              </div>
+              <p className="text-[10px] text-amber-600 font-medium">Active Bambu & Prusa</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rush Priority</span>
+              <div className="text-xl font-black text-rose-600 font-mono">
+                {orders.filter(o => (o.priority || '').includes('Rush')).length}
+              </div>
+              <p className="text-[10px] text-rose-600 font-medium">Expedited fulfillment</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ready for QA / Pack</span>
+              <div className="text-xl font-black text-indigo-600 font-mono">
+                {orders.filter(o => o.status === 'Printing Complete' || o.status === 'QA Testing the Product').length}
+              </div>
+              <p className="text-[10px] text-indigo-600 font-medium">Post-print processing</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">In Courier Transit</span>
+              <div className="text-xl font-black text-blue-600 font-mono">
+                {orders.filter(o => o.status === 'Shipping to Delivery Partner').length}
+              </div>
+              <p className="text-[10px] text-blue-600 font-medium">Dispatched couriers</p>
+            </div>
+          </div>
+
+          {/* Search & Advanced Enterprise Filters Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search by Order ID, customer, email, phone, tracking, or product..."
+                  value={orderSearchTerm}
+                  onChange={(e) => setOrderSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {/* Stage Filter */}
+                <select
+                  value={orderStageFilter}
+                  onChange={(e) => setOrderStageFilter(e.target.value)}
+                  className="px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800"
+                >
+                  <option value="all">All Stages ({orders.length})</option>
+                  {ORDER_STAGES.map(st => (
+                    <option key={st.id} value={st.id}>{st.id}</option>
+                  ))}
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+
+                {/* Priority Filter */}
+                <select
+                  value={orderPriorityFilter}
+                  onChange={(e) => setOrderPriorityFilter(e.target.value)}
+                  className="px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="rush">Rush / High Priority</option>
+                  <option value="standard">Standard Priority</option>
+                </select>
+
+                {/* Machine Filter */}
+                <select
+                  value={orderMachineFilter}
+                  onChange={(e) => setOrderMachineFilter(e.target.value)}
+                  className="px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800"
+                >
+                  <option value="all">All Print Farm Fleet</option>
+                  {printers.map(p => (
+                    <option key={p.id} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+
+                {(orderSearchTerm || orderStageFilter !== 'all' || orderPriorityFilter !== 'all' || orderMachineFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setOrderSearchTerm('');
+                      setOrderStageFilter('all');
+                      setOrderPriorityFilter('all');
+                      setOrderMachineFilter('all');
+                    }}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Enterprise Split Master-Detail Console */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Left Column: Order Cards Selector */}
+            <div className="lg:col-span-4 space-y-3">
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="font-bold text-slate-500">
+                  Showing <span className="text-slate-900 font-black">{enterpriseOrdersList.length}</span> orders
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">Click order to inspect dossier</span>
+              </div>
+
+              <div className="space-y-2.5 max-h-[780px] overflow-y-auto pr-1">
+                {enterpriseOrdersList.map((order) => {
+                  const isSelected = activeEnterpriseOrder?.id === order.id;
+                  const isRush = (order.priority || '').includes('Rush');
+                  return (
+                    <div
+                      key={order.id}
+                      onClick={() => setSelectedEnterpriseOrderId(order.id)}
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer text-xs space-y-2 ${
+                        isSelected
+                          ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-mono font-black text-slate-900">{order.id}</span>
+                          {isRush && (
+                            <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200">
+                              Rush
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono font-black text-slate-900">${(order.total || 0).toFixed(2)}</span>
+                      </div>
+
+                      <div className="text-[11px] text-slate-700">
+                        <div className="font-bold text-slate-900">{order.customerName}</div>
+                        <div className="text-slate-400 text-[10px]">{order.date} • {order.time}</div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 line-clamp-1">
+                        {(order.items || []).map(i => `${i.name} (x${i.quantity || 1})`).join(', ') || 'Custom 3D Item'}
+                      </div>
+
+                      <div className="pt-1 flex items-center justify-between border-t border-slate-100 text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 max-w-[170px] truncate">
+                          {order.status}
+                        </span>
+                        <span className="text-slate-400 font-mono truncate max-w-[110px]">
+                          {order.assignedPrinter ? order.assignedPrinter.split(' ')[0] : 'Unassigned'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {enterpriseOrdersList.length === 0 && (
+                  <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-2">
+                    <p className="font-bold text-slate-600 text-xs">No orders match filter criteria</p>
+                    <button
+                      onClick={() => {
+                        setOrderSearchTerm('');
+                        setOrderStageFilter('all');
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[11px] font-bold"
+                    >
+                      Clear Search
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Full Enterprise Dossier */}
+            <div className="lg:col-span-8">
+              {activeEnterpriseOrder ? (
+                <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  
+                  {/* Dossier Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-extrabold text-[10px] uppercase tracking-wider border border-blue-200 flex items-center space-x-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>Enterprise Dossier</span>
+                        </span>
+                        <button
+                          onClick={() => handleTogglePriority(activeEnterpriseOrder.id, activeEnterpriseOrder.priority)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase cursor-pointer transition-all ${
+                            (activeEnterpriseOrder.priority || '').includes('Rush')
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                          title="Click to toggle standard / rush order priority"
+                        >
+                          {(activeEnterpriseOrder.priority || '').includes('Rush') ? 'Rush Priority (Active)' : 'Mark Rush Priority'}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center space-x-2 mt-1">
+                        <h2 className="text-xl sm:text-2xl font-black font-mono text-slate-900 tracking-tight">
+                          {activeEnterpriseOrder.id}
+                        </h2>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(activeEnterpriseOrder.id);
+                            addToast(`Order ID ${activeEnterpriseOrder.id} copied!`, 'info');
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                          title="Copy Order ID"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Recorded on {activeEnterpriseOrder.date} at {activeEnterpriseOrder.time} • Payment: {activeEnterpriseOrder.paymentMethod || 'Credit Card'} (Status: {activeEnterpriseOrder.paymentStatus || 'Settled'})
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setIsInvoiceModalOpen(true)}
+                        className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Print Invoice / Slip</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Enterprise Dossier Card */}
+                  <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/90 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3 mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center border border-indigo-200 overflow-hidden">
+                          {activeEnterpriseOrder.customerName?.charAt(0) || 'C'}
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-extrabold text-slate-900 text-sm">{activeEnterpriseOrder.customerName}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800">Verified Client</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500">{activeEnterpriseOrder.customerEmail} • {activeEnterpriseOrder.customerPhone || 'No phone'}</div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Customer History</span>
+                        <span className="font-extrabold text-slate-800 text-xs">
+                          {orders.filter(o => o.customerEmail === activeEnterpriseOrder.customerEmail).length} Orders Placed
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                      <div>
+                        <span className="font-bold text-slate-500 block">Shipping Destination:</span>
+                        <p className="text-slate-800 font-medium mt-0.5">
+                          {activeEnterpriseOrder.shippingAddress?.fullName || activeEnterpriseOrder.customerName}<br />
+                          {activeEnterpriseOrder.shippingAddress?.address || '742 Evergreen Terrace'}<br />
+                          {activeEnterpriseOrder.shippingAddress?.city || 'Springfield'}, {activeEnterpriseOrder.shippingAddress?.state || 'OR'} {activeEnterpriseOrder.shippingAddress?.zip || '97477'}
+                        </p>
+                      </div>
+                      <div className="sm:border-l sm:border-slate-200 sm:pl-3">
+                        <span className="font-bold text-slate-500 block">Billing & Settlement:</span>
+                        <p className="text-slate-800 font-medium mt-0.5">
+                          Method: {activeEnterpriseOrder.paymentMethod || 'Credit Card'}<br />
+                          Gateway Status: <span className="font-bold text-emerald-600">Captured / Settled</span><br />
+                          Total Charged: <span className="font-mono font-bold">${(activeEnterpriseOrder.total || 0).toFixed(2)}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3D Ordered Line Items & Engineering Specs */}
+                  <div className="space-y-3">
+                    <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-1.5">
+                      <Package className="w-4 h-4 text-indigo-600" />
+                      <span>Custom 3D Line Items & CAD Specifications ({(activeEnterpriseOrder.items || []).length})</span>
+                    </h3>
+
+                    <div className="space-y-3">
+                      {(activeEnterpriseOrder.items || []).map((item, idx) => (
+                        <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-white text-xs space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div className="flex items-start space-x-3">
+                              <img
+                                src={item.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=160&auto=format&fit=crop&q=80'}
+                                alt={item.name}
+                                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                              />
+                              <div>
+                                <h4 className="font-extrabold text-slate-900 text-sm">{item.name}</h4>
+                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                  Quantity: <span className="font-bold text-slate-800">{item.quantity || 1}</span> • Unit Price: <span className="font-mono font-bold">${(item.price || 0).toFixed(2)}</span>
+                                </div>
+                                {item.customText && (
+                                  <div className="mt-1.5 inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 font-mono font-bold text-xs">
+                                    <span>Custom 3D Text:</span>
+                                    <span className="text-indigo-950 font-black">"{item.customText}"</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="font-mono font-black text-slate-900 text-sm">
+                                ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Filament Colors Loaded for Item */}
+                          {item.selectedColors && Object.keys(item.selectedColors).length > 0 && (
+                            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] font-bold text-slate-500">Filament Swatches:</span>
+                              {Object.entries(item.selectedColors).map(([sectionKey, hex]) => (
+                                <div key={sectionKey} className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700">
+                                  <div className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: hex }} />
+                                  <span className="capitalize">{sectionKey.replace(/_/g, ' ')}:</span>
+                                  <span className="font-mono">{hex}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* CAD Model or Attached File */}
+                          {(item.cadModelUrl || item.modelFileUrl || item.fileUrl) && (
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] bg-slate-50 p-2.5 rounded-xl">
+                              <div className="flex items-center space-x-2">
+                                <FileCode className="w-4 h-4 text-indigo-600" />
+                                <span className="font-bold text-slate-800 truncate">
+                                  3D Model CAD File: {item.uploadedFileName || 'custom-model.stl'}
+                                </span>
+                              </div>
+                              <a
+                                href={item.cadModelUrl || item.modelFileUrl || item.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[10px] inline-flex items-center space-x-1"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Download CAD / STL</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Machine Allocation & 10-Stage Status Pipeline Controls */}
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/70 pb-3">
+                      <div>
+                        <h4 className="font-black text-slate-900 text-sm flex items-center space-x-1.5">
+                          <Printer className="w-4 h-4 text-orange-600" />
+                          <span>Production & Machine Allocation</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Route this custom order to active printer farm hardware.
+                        </p>
+                      </div>
+
+                      {/* Machine Assignment */}
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-slate-600">Assigned Machine:</span>
+                        <select
+                          value={activeEnterpriseOrder.assignedPrinter || ''}
+                          onChange={(e) => handleEnterpriseMachineAssign(activeEnterpriseOrder.id, e.target.value)}
+                          className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-800"
+                        >
+                          <option value="">Unassigned</option>
+                          {printers.map(p => (
+                            <option key={p.id} value={p.name}>{p.name} ({p.status})</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            const bambu = printers.find(p => p.name.includes('Bambu') || p.id.includes('BAMBU')) || printers[0];
+                            if (bambu) {
+                              handleEnterpriseMachineAssign(activeEnterpriseOrder.id, bambu.name);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-[10px] cursor-pointer"
+                          title="Assign immediately to Bambu Lab A1"
+                        >
+                          Bambu A1
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stage Pipeline Selector & Advance Action */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-slate-700">Pipeline Stage:</span>
+                        <select
+                          value={activeEnterpriseOrder.status}
+                          onChange={(e) => handleEnterpriseStatusChange(activeEnterpriseOrder.id, e.target.value)}
+                          className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl font-bold text-indigo-900"
+                        >
+                          {ORDER_STAGES.map(st => (
+                            <option key={st.id} value={st.id}>{st.id}</option>
+                          ))}
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            const currentIdx = ORDER_STAGES.findIndex(s => s.id === activeEnterpriseOrder.status);
+                            if (currentIdx >= 0 && currentIdx < ORDER_STAGES.length - 1) {
+                              handleEnterpriseStatusChange(activeEnterpriseOrder.id, ORDER_STAGES[currentIdx + 1].id);
+                            }
+                          }}
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center space-x-1 cursor-pointer shadow-xs"
+                        >
+                          <span>Advance Next Stage</span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Timeline visualization */}
+                    <div className="pt-2 border-t border-slate-200/70">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">
+                        {ORDER_STAGES.slice(0, 5).map((stage, idx) => {
+                          const isDone = ORDER_STAGES.findIndex(s => s.id === activeEnterpriseOrder.status) >= idx;
+                          return (
+                            <div key={stage.id} className={`p-2 rounded-lg border ${isDone ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 font-bold' : 'bg-white border-slate-200 text-slate-400'}`}>
+                              <div className="truncate">{stage.id}</div>
+                              <span className="text-[9px] block text-slate-500 font-normal">{isDone ? 'Completed' : 'Pending'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* QA Quality Inspection & Calibration Certification */}
+                  <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200/80 space-y-3 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <h4 className="font-extrabold text-slate-900 text-sm">Quality Assurance & Caliper Certification</h4>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${activeEnterpriseOrder.qaPassed ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-100 text-amber-800'}`}>
+                        {activeEnterpriseOrder.qaPassed ? 'QA Certified' : 'Awaiting QA Pass'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[11px] font-bold text-slate-600">Tolerance:</span>
+                        <select
+                          value={qaToleranceInput}
+                          onChange={(e) => setQaToleranceInput(e.target.value)}
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                        >
+                          <option value="< 0.05mm (Precision)">&lt; 0.05mm (Precision CoreXY)</option>
+                          <option value="< 0.10mm (Pass)">&lt; 0.10mm (Standard ISO)</option>
+                          <option value="< 0.15mm (Draft)">&lt; 0.15mm (High Speed)</option>
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={() => handleCertifyQA(activeEnterpriseOrder.id, true)}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer shadow-2xs"
+                      >
+                        Certify QA Passed
+                      </button>
+
+                      <button
+                        onClick={() => handleCertifyQA(activeEnterpriseOrder.id, false)}
+                        className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-xs cursor-pointer"
+                      >
+                        Mark Defect / Reject
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dispatch Logistics & Courier Manifest */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <Truck className="w-4 h-4 text-blue-600" />
+                      <h4 className="font-extrabold text-slate-900 text-sm">Courier Dispatch & Manifest</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-600 block">Courier Partner</label>
+                        <select
+                          value={activeEnterpriseOrder.deliveryPartner || 'BlueDart Express'}
+                          onChange={(e) => handleEnterpriseCarrierUpdate(activeEnterpriseOrder.id, e.target.value, activeEnterpriseOrder.trackingNumber)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                        >
+                          <option value="BlueDart Express">BlueDart Express</option>
+                          <option value="FedEx Express">FedEx Express</option>
+                          <option value="DHL Supply Chain">DHL Supply Chain</option>
+                          <option value="Delhivery Surface">Delhivery Surface</option>
+                          <option value="UPS Next Day Air">UPS Next Day Air</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="font-bold text-slate-600 block">Tracking Number</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={activeEnterpriseOrder.trackingNumber || ''}
+                            onChange={(e) => handleEnterpriseCarrierUpdate(activeEnterpriseOrder.id, activeEnterpriseOrder.deliveryPartner, e.target.value)}
+                            placeholder="e.g. BD-88219412"
+                            className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase"
+                          />
+                          <button
+                            onClick={() => {
+                              const newTracking = `BD-${Math.floor(10000000 + Math.random() * 90000000)}`;
+                              handleEnterpriseCarrierUpdate(activeEnterpriseOrder.id, activeEnterpriseOrder.deliveryPartner, newTracking);
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-bold whitespace-nowrap"
+                          >
+                            Auto-Generate
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Internal Administrator Notes & Audit Log */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100 text-xs">
+                    <h4 className="font-extrabold text-slate-900 text-sm flex items-center space-x-1.5">
+                      <MessageSquare className="w-4 h-4 text-purple-600" />
+                      <span>Internal Production Notes & Audit Trail</span>
+                    </h4>
+
+                    {/* Note List */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(activeEnterpriseOrder.internalNotes || []).map((note, nIdx) => (
+                        <div key={nIdx} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-0.5">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+                            <span>{note.author || 'Administrator'}</span>
+                            <span>{note.createdAt ? new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Logged'}</span>
+                          </div>
+                          <p className="text-slate-800 font-medium">{note.text}</p>
+                        </div>
+                      ))}
+
+                      {(!activeEnterpriseOrder.internalNotes || activeEnterpriseOrder.internalNotes.length === 0) && (
+                        <p className="text-slate-400 italic text-[11px]">No internal admin notes recorded for this order.</p>
+                      )}
+                    </div>
+
+                    {/* Add note input */}
+                    <div className="flex items-center space-x-2 pt-1">
+                      <input
+                        type="text"
+                        placeholder="Add internal note (e.g. Sliced with 0.16mm layer height, customer requested extra wall thickness)..."
+                        value={newAdminNote}
+                        onChange={(e) => setNewAdminNote(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddAdminNote(activeEnterpriseOrder.id);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:border-purple-500"
+                      />
+                      <button
+                        onClick={() => handleAddAdminNote(activeEnterpriseOrder.id)}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-2xs whitespace-nowrap"
+                      >
+                        Add Note
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-2">
+                  <p className="font-bold text-slate-600 text-sm">Select an order from the left list to view the enterprise dossier</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* TAB: CATEGORIES & HOMEPAGE MANAGER */}
+      {activeTab === 'categories' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                  Product Categories & Homepage Visual Collections
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+                  {(categories || []).length} Categories
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 max-w-2xl">
+                Add and manage categories with custom category names and high-resolution images. Every category added here appears immediately in the circular category scroll cards on the customer homepage and in product creation!
+              </p>
+            </div>
+
+            <button
+              onClick={handleOpenCreateCategory}
+              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-2xl text-xs shadow-md shadow-purple-600/20 flex items-center space-x-2 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Category</span>
+            </button>
+          </div>
+
+          {/* Categories Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {(categories || []).map((cat) => {
+              const productCount = (products || []).filter(p => p.category === (cat.slug || cat.id) || p.category === cat.id).length;
+              return (
+                <div
+                  key={cat.id}
+                  className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+                >
+                  <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
+                    <img
+                      src={cat.imageUrl || cat.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80'}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {cat.badge && (
+                      <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900/80 backdrop-blur-md text-white shadow-xs">
+                        {cat.badge}
+                      </span>
+                    )}
+                    <span className="absolute bottom-3 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/90 backdrop-blur-md text-slate-800 shadow-xs">
+                      {productCount} {productCount === 1 ? 'Product' : 'Products'}
+                    </span>
+                  </div>
+
+                  <div className="p-4 space-y-2 flex-1 flex flex-col justify-between text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-extrabold text-slate-900 text-sm truncate">{cat.name}</h4>
+                        <span className="text-[10px] font-mono text-slate-400">/{cat.slug}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                        {cat.description || 'Custom 3D extruded collection for this category.'}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => handleOpenEditCategory(cat)}
+                        className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                        title="Edit Category"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                        className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {(categories || []).length === 0 && (
+            <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+              <Layers className="w-12 h-12 text-slate-300 mx-auto" />
+              <h4 className="font-bold text-slate-700">No categories found in database</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Create your first category with a category name and uploaded image to display on the homepage.
+              </p>
+              <button
+                onClick={handleOpenCreateCategory}
+                className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold"
+              >
+                + Create Category
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {activeTab === 'filaments' && (
         <div className="space-y-6">
           {/* Header Card */}
@@ -1625,19 +2552,18 @@ export default function AdminPage() {
                   <select
                     value={productForm.category}
                     onChange={(e) => {
-                      const cat = e.target.value;
-                      let label = '3D Keychains';
-                      if (cat === 'cake-toppers') label = 'Cake Toppers';
-                      if (cat === 'name-boards') label = 'Name Boards';
-                      if (cat === '3d-gift') label = '3D Gifts';
-                      setProductForm({ ...productForm, category: cat, categoryLabel: label });
+                      const selectedSlug = e.target.value;
+                      const matched = (categories || []).find(c => c.slug === selectedSlug || c.id === selectedSlug);
+                      const label = matched ? matched.name : selectedSlug;
+                      setProductForm({ ...productForm, category: selectedSlug, categoryLabel: label });
                     }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                   >
-                    <option value="3d-keychain">3D Keychains</option>
-                    <option value="cake-toppers">Cake Toppers</option>
-                    <option value="name-boards">Name Boards</option>
-                    <option value="3d-gift">3D Gifts</option>
+                    {(categories || []).map((cat) => (
+                      <option key={cat.id} value={cat.slug || cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2357,6 +3283,289 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CATEGORY CREATE / EDIT */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                <h3 className="text-base font-black text-slate-900">
+                  {editingCategory ? `Edit Category: ${editingCategory.name}` : 'Add New Category'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 block">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Lithophane Lamps & Night Lights"
+                  value={categoryForm.name}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    const autoSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    setCategoryForm(prev => ({
+                      ...prev,
+                      name: newName,
+                      slug: editingCategory ? prev.slug : autoSlug
+                    }));
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-hidden focus:border-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">URL Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. lithophane-lamps"
+                    value={categoryForm.slug}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-800 focus:outline-hidden focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Badge Overlay</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Trending, Best Seller, New"
+                    value={categoryForm.badge}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, badge: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Category Image Upload & Preview */}
+              <div className="space-y-2">
+                <label className="font-bold text-slate-700 block">Category Image (Uploaded to Storage) *</label>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  {/* Image Preview Box */}
+                  <div className="w-24 h-24 rounded-2xl border-2 border-purple-200 bg-slate-100 overflow-hidden shrink-0 relative group">
+                    {categoryForm.imageUrl ? (
+                      <img
+                        src={categoryForm.imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-[10px]">
+                        <Layers className="w-6 h-6 mb-1" />
+                        <span>No Image</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2 w-full">
+                    {/* Upload File Input */}
+                    <label className="flex items-center justify-center space-x-2 px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-xl font-bold cursor-pointer transition-colors text-xs">
+                      <Upload className="w-4 h-4" />
+                      <span>{isUploadingCategoryImage ? 'Uploading image...' : 'Upload Image File'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingCategoryImage}
+                        onChange={handleCategoryImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Or URL input */}
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-semibold block">Or paste image web link:</span>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/..."
+                        value={categoryForm.imageUrl}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 block">Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Short tagline explaining this 3D product collection..."
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:border-purple-500 text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploadingCategoryImage}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer flex items-center space-x-1.5"
+                >
+                  <span>{editingCategory ? 'Update Category' : 'Save Category'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PRINTABLE PACKING SLIP & INVOICE */}
+      {isInvoiceModalOpen && activeEnterpriseOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto print:p-0 print:shadow-none">
+            
+            {/* Action Bar (Hidden when printing) */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-slate-900" />
+                <h3 className="font-black text-slate-900 text-sm">Packing Slip & Production Invoice</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Slip</span>
+                </button>
+                <button
+                  onClick={() => setIsInvoiceModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Document Body */}
+            <div className="space-y-6 text-slate-900 text-xs">
+              
+              {/* Slip Header with Brand & Barcode */}
+              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+                <div>
+                  <div className="text-xl font-black tracking-tight text-slate-900">Fusion3D Works</div>
+                  <p className="text-[11px] text-slate-500">Bespoke 3D Print Lab & Engineering Facility</p>
+                  <p className="text-[10px] text-slate-400 mt-1">742 Evergreen Terrace, San Francisco, CA</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <span className="font-mono font-black text-lg block">{activeEnterpriseOrder.id}</span>
+                  <div className="text-[10px] font-mono text-slate-500">Date: {activeEnterpriseOrder.date} • {activeEnterpriseOrder.time}</div>
+                  <div className="text-[10px] font-bold text-blue-600 uppercase">Priority: {activeEnterpriseOrder.priority || 'Standard'}</div>
+                </div>
+              </div>
+
+              {/* Ship To & Carrier Manifest */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <span className="font-black uppercase text-[10px] text-slate-400 block tracking-wider">Ship To (Client)</span>
+                  <div className="font-black text-slate-900 text-sm mt-0.5">{activeEnterpriseOrder.customerName}</div>
+                  <div className="text-slate-600 text-xs mt-0.5">
+                    {activeEnterpriseOrder.shippingAddress?.address || '742 Evergreen Terrace'}<br />
+                    {activeEnterpriseOrder.shippingAddress?.city || 'Springfield'}, {activeEnterpriseOrder.shippingAddress?.state || 'OR'} {activeEnterpriseOrder.shippingAddress?.zip || '97477'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">{activeEnterpriseOrder.customerEmail} • {activeEnterpriseOrder.customerPhone || 'N/A'}</div>
+                </div>
+
+                <div>
+                  <span className="font-black uppercase text-[10px] text-slate-400 block tracking-wider">Logistics & Courier</span>
+                  <div className="font-bold text-slate-800 text-xs mt-0.5">Partner: {activeEnterpriseOrder.deliveryPartner || 'BlueDart Express'}</div>
+                  <div className="text-xs font-mono font-bold text-slate-900 mt-0.5">Tracking: {activeEnterpriseOrder.trackingNumber || 'Pending'}</div>
+                  <div className="text-xs font-bold text-emerald-700 mt-1">Status: {activeEnterpriseOrder.status}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Printer Fleet: {activeEnterpriseOrder.assignedPrinter || 'Bambu Lab A1'}</div>
+                </div>
+              </div>
+
+              {/* Line Items Table */}
+              <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
+                <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-black border-b border-slate-200">
+                  <tr>
+                    <th className="py-2.5 px-3">3D Creation Description</th>
+                    <th className="py-2.5 px-3">Custom Specs & Text</th>
+                    <th className="py-2.5 px-3 text-center">Qty</th>
+                    <th className="py-2.5 px-3 text-right">Unit Price</th>
+                    <th className="py-2.5 px-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(activeEnterpriseOrder.items || []).map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-3 px-3">
+                        <span className="font-bold text-slate-900 block">{item.name}</span>
+                        <span className="text-[10px] text-slate-400">Print time: ~{item.printTimeMinutes || 45} mins</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        {item.customText ? (
+                          <span className="font-mono font-black text-indigo-700 text-xs">"{item.customText}"</span>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">Standard Parametric</span>
+                        )}
+                        {item.selectedColors && (
+                          <div className="text-[9px] text-slate-500 font-mono mt-0.5">
+                            {Object.entries(item.selectedColors).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-center font-bold">{item.quantity || 1}</td>
+                      <td className="py-3 px-3 text-right font-mono">${(item.price || 0).toFixed(2)}</td>
+                      <td className="py-3 px-3 text-right font-mono font-bold">${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Financial Summary */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-mono">${(activeEnterpriseOrder.subtotal || activeEnterpriseOrder.total || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Shipping Handling:</span>
+                    <span className="font-mono">${(activeEnterpriseOrder.shippingFee || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-black text-sm pt-1.5 border-t border-slate-200">
+                    <span>Total Amount Paid:</span>
+                    <span className="font-mono text-emerald-700">${(activeEnterpriseOrder.total || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quality Seal */}
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Caliper Verified Tolerance & Surface Finish Certified (&lt; 0.10mm deviation)</span>
+                </div>
+                <span className="font-mono font-bold text-slate-700">ISO-9001 Fusion3D Lab</span>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

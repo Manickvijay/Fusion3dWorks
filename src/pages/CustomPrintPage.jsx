@@ -15,13 +15,13 @@ import {
 import { useShop } from '../context/ShopContext';
 
 export default function CustomPrintPage() {
-  const { addToCart, addToast, uploadStorageFile } = useShop();
+  const { addToCart, addToast, uploadStorageFile, filaments } = useShop();
 
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [material, setMaterial] = useState('PLA+ PolyTerra Silk');
   const [infill, setInfill] = useState(20);
-  const [selectedColor, setSelectedColor] = useState('#F59E0B');
+  const [selectedColor, setSelectedColor] = useState(() => filaments?.[0]?.hex || '#F59E0B');
   const [layerHeight, setLayerHeight] = useState('0.16mm (Standard Detail)');
   const [isDragging, setIsDragging] = useState(false);
 
@@ -213,10 +213,23 @@ export default function CustomPrintPage() {
               onChange={(e) => setMaterial(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium text-xs focus:outline-hidden focus:border-indigo-500"
             >
-              <option>PLA+ PolyTerra Silk (High Detail / Decorative)</option>
-              <option>Food-Safe Bio Resin (Ultra-Smooth 12K)</option>
-              <option>Engineering PETG (Waterproof / Heat Resistant)</option>
-              <option>Carbon-Fiber Reinforced PLA (High Rigidity)</option>
+              {(() => {
+                const uniqueMats = Array.from(new Set((filaments || []).map(f => f.material).filter(Boolean)));
+                if (uniqueMats.length === 0) {
+                  return (
+                    <>
+                      <option>PLA+ PolyTerra Silk (High Detail / Decorative)</option>
+                      <option>Food-Safe Bio Resin (Ultra-Smooth 12K)</option>
+                      <option>Engineering PETG (Waterproof / Heat Resistant)</option>
+                    </>
+                  );
+                }
+                return uniqueMats.map(mat => (
+                  <option key={mat} value={mat}>
+                    {mat}
+                  </option>
+                ));
+              })()}
             </select>
           </div>
 
@@ -256,27 +269,20 @@ export default function CustomPrintPage() {
             </select>
           </div>
 
-          {/* Color Selection */}
+          {/* Color Selection from Dynamic Filament Inventory */}
           <div className="space-y-1.5">
             <label className="font-bold text-slate-800 block">Filament Color</label>
-            <div className="flex items-center space-x-2">
-              {[
-                { name: 'Silk Gold', hex: '#F59E0B' },
-                { name: 'Cyber Cyan', hex: '#06B6D4' },
-                { name: 'Matte Obsidian', hex: '#0F172A' },
-                { name: 'Pure White', hex: '#FFFFFF' },
-                { name: 'Neon Coral', hex: '#F43F5E' },
-                { name: 'Emerald', hex: '#10B981' }
-              ].map((c, i) => (
+            <div className="flex flex-wrap items-center gap-2">
+              {(filaments || []).filter(f => f.inStock !== false).map((c) => (
                 <button
-                  key={i}
+                  key={c.id || c.hex}
                   type="button"
                   onClick={() => setSelectedColor(c.hex)}
                   className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
                     selectedColor === c.hex ? 'scale-110 border-indigo-600 ring-2 ring-indigo-200' : 'border-slate-300'
                   }`}
                   style={{ backgroundColor: c.hex }}
-                  title={c.name}
+                  title={`${c.name} (${c.material || 'Filament'})`}
                 />
               ))}
             </div>

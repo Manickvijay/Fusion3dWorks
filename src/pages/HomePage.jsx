@@ -24,11 +24,10 @@ import {
   Check
 } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
-import { CATEGORIES } from '../data/products';
 import ProductCard from '../components/common/ProductCard';
 
 export default function HomePage() {
-  const { products, printers, submitCustomRequest } = useShop();
+  const { products, printers, submitCustomRequest, categories, filaments } = useShop();
 
   // Active filters
   const [activeCategory, setActiveCategory] = useState('all');
@@ -47,51 +46,46 @@ export default function HomePage() {
   const [askForm, setAskForm] = useState({
     name: '',
     email: '',
-    productInterest: 'Personalized 3D Keychain',
+    productInterest: categories?.[0]?.name || 'Personalized 3D Keychain',
     dimensions: '',
     preferredColors: '',
     specialNotes: ''
   });
   const [askSubmitted, setAskSubmitted] = useState(false);
 
-  // Visual Category Cards definition (Image + Text Card below banner)
-  const visualCategoryCards = [
-    {
-      id: 'all',
-      name: 'All 3D Products',
-      tagline: 'Full Custom Catalog',
-      count: products.length,
-      image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: '3d-keychain',
-      name: '3D Keychains',
-      tagline: 'Dual-Color Names & Logos',
-      count: products.filter(p => p.category === '3d-keychain').length,
-      image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'cake-toppers',
-      name: 'Cake Toppers',
-      tagline: 'Wedding & Birthday Script',
-      count: products.filter(p => p.category === 'cake-toppers').length,
-      image: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'name-boards',
-      name: 'Name Boards',
-      tagline: 'Illuminated Gamer & Desk Signs',
-      count: products.filter(p => p.category === 'name-boards').length,
-      image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=500&auto=format&fit=crop&q=80'
-    },
-    {
-      id: '3d-gift',
-      name: '3D Gifts & Art',
-      tagline: 'Lithophanes & Planters',
-      count: products.filter(p => p.category === '3d-gift').length,
-      image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80'
+  // Dynamic Visual Category Cards (Admin-managed from backend/admin panel)
+  const visualCategoryCards = useMemo(() => {
+    const list = [
+      {
+        id: 'all',
+        slug: 'all',
+        name: 'All 3D Products',
+        tagline: 'Full Custom Catalog',
+        count: (products || []).length,
+        image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500&auto=format&fit=crop&q=80'
+      }
+    ];
+
+    if (Array.isArray(categories)) {
+      categories.forEach(cat => {
+        const catSlug = cat.slug || cat.id;
+        const matchingCount = (products || []).filter(
+          p => p.category === catSlug || p.category === cat.id
+        ).length;
+
+        list.push({
+          id: catSlug,
+          slug: catSlug,
+          name: cat.name,
+          tagline: cat.description || cat.badge || 'Custom 3D Creation',
+          count: matchingCount,
+          image: cat.imageUrl || cat.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80'
+        });
+      });
     }
-  ];
+
+    return list;
+  }, [products, categories]);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -404,7 +398,7 @@ export default function HomePage() {
             <span className="text-slate-400 font-medium text-[11px]">Applied Filters:</span>
             {activeCategory !== 'all' && (
               <span className="inline-flex items-center px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-semibold border border-indigo-200">
-                Category: {activeCategory}
+                Category: {categories?.find(c => c.slug === activeCategory || c.id === activeCategory)?.name || activeCategory}
                 <button onClick={() => setActiveCategory('all')} className="ml-1 hover:text-indigo-900">
                   <X className="w-3 h-3" />
                 </button>
@@ -673,29 +667,43 @@ export default function HomePage() {
               </div>
 
               {/* Material Preference */}
+              {/* Material Preference from dynamic filaments and products */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <label className="text-xs font-bold text-slate-800 block">Filament & Material Type:</label>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  {[
-                    { id: 'all', label: 'All Materials' },
-                    { id: 'PLA', label: 'PLA+ Polymer' },
-                    { id: 'PETG', label: 'PETG Tough' },
-                    { id: 'Silk', label: 'Silk Gloss' },
-                    { id: 'Resin', label: '12K UV Resin' }
-                  ].map(mat => (
-                    <button
-                      key={mat.id}
-                      type="button"
-                      onClick={() => setSelectedMaterial(mat.id)}
-                      className={`p-2 rounded-xl text-center border font-semibold transition-all ${
-                        selectedMaterial === mat.id
-                          ? 'bg-indigo-50 border-indigo-600 text-indigo-700'
-                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      {mat.label}
-                    </button>
-                  ))}
+                  {(() => {
+                    const materialSet = new Set();
+                    (filaments || []).forEach(f => {
+                      if (f.material) {
+                        const base = f.material.split(' ')[0];
+                        if (base) materialSet.add(base);
+                      }
+                    });
+                    (products || []).forEach(p => {
+                      if (p.material) {
+                        const base = p.material.split(' ')[0];
+                        if (base) materialSet.add(base);
+                      }
+                    });
+                    const dynamicOptions = [
+                      { id: 'all', label: 'All Materials' },
+                      ...Array.from(materialSet).slice(0, 5).map(m => ({ id: m, label: m }))
+                    ];
+                    return dynamicOptions.map(mat => (
+                      <button
+                        key={mat.id}
+                        type="button"
+                        onClick={() => setSelectedMaterial(mat.id)}
+                        className={`p-2 rounded-xl text-center border font-semibold transition-all ${
+                          selectedMaterial === mat.id
+                            ? 'bg-indigo-50 border-indigo-600 text-indigo-700'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        {mat.label}
+                      </button>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -832,12 +840,13 @@ export default function HomePage() {
                     onChange={(e) => setAskForm({ ...askForm, productInterest: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-hidden focus:border-indigo-500"
                   >
-                    <option value="Personalized 3D Keychain">Personalized 3D Keychain</option>
-                    <option value="Custom Wedding Cake Topper">Custom Wedding Cake Topper</option>
-                    <option value="Illuminated LED Name Board">Illuminated LED Name Board</option>
-                    <option value="Lithophane 3D Lamp Shade">Lithophane 3D Lamp Shade</option>
+                    {(categories || []).map(cat => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
                     <option value="Full Custom 3D STL Print">Full Custom 3D STL Print</option>
-                    <option value="Other Custom Part">Other Bespoke 3D Part</option>
+                    <option value="Other Bespoke Part">Other Bespoke 3D Part</option>
                   </select>
                 </div>
 

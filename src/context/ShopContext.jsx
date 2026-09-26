@@ -72,6 +72,53 @@ export const INITIAL_FILAMENTS = [
   { id: 'fil-10', name: 'Ruby Crimson', hex: '#DC2626', material: 'PLA+ Silk', inStock: true },
 ];
 
+export const INITIAL_CATEGORIES = [
+  {
+    id: 'cat-3d-keychain',
+    slug: '3d-keychain',
+    name: '3D Keychains',
+    description: 'Personalized dual-color typography and scannable code keychains',
+    imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+    badge: 'Best Seller',
+    displayOrder: 1,
+    isActive: true,
+    count: 2
+  },
+  {
+    id: 'cat-cake-toppers',
+    slug: 'cake-toppers',
+    name: 'Cake Toppers',
+    description: 'Food-safe organic bio-PLA script toppers for weddings & birthdays',
+    imageUrl: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=600&auto=format&fit=crop&q=80',
+    badge: 'Celebrations',
+    displayOrder: 2,
+    isActive: true,
+    count: 1
+  },
+  {
+    id: 'cat-name-boards',
+    slug: 'name-boards',
+    name: 'Name Boards & Signs',
+    description: 'Freestanding desk nameplates with backlighting channels',
+    imageUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&auto=format&fit=crop&q=80',
+    badge: 'Interior Desk',
+    displayOrder: 3,
+    isActive: true,
+    count: 1
+  },
+  {
+    id: 'cat-3d-gift',
+    slug: '3d-gift',
+    name: '3D Gifts & Sculptures',
+    description: 'Bespoke lithophane photo lamps, geometric sculptures, and desk art',
+    imageUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop&q=80',
+    badge: 'Art & Memory',
+    displayOrder: 4,
+    isActive: true,
+    count: 4
+  }
+];
+
 export const ORDER_STAGES = [
   { id: 'Order Placed', label: 'Order Placed', progress: 10, defaultNote: 'CAD model order received and queued for design engineer.' },
   { id: 'Design Stage', label: 'Design Stage', progress: 20, defaultNote: '3D typography and dimensional modeling in progress.' },
@@ -431,6 +478,16 @@ export function ShopProvider({ children }) {
     }
   });
 
+  // Dynamic Product Categories (Admin Managed & Dynamic Homepage)
+  const [categories, setCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fusion3d_categories');
+      return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+    } catch {
+      return INITIAL_CATEGORIES;
+    }
+  });
+
   // Backend Connectivity & Live Synchronization
   const [backendStatus, setBackendStatus] = useState('checking'); // 'checking' | 'connected' | 'sleeping' | 'offline'
   const [isBackendSyncing, setIsBackendSyncing] = useState(false);
@@ -442,14 +499,15 @@ export function ShopProvider({ children }) {
       await api.health.check();
       setBackendStatus('connected');
 
-      // Fetch live data from Render backend in parallel
-      const [prodRes, orderRes, printerRes, usersRes, inqRes, filRes] = await Promise.allSettled([
+      // Fetch live data from backend in parallel
+      const [prodRes, orderRes, printerRes, usersRes, inqRes, filRes, catRes] = await Promise.allSettled([
         api.products.getAll(),
         api.orders.getAll(),
         api.printers.getAll(),
         api.auth.getUsers(),
         api.inquiries.getAll(),
         api.filaments.getAll(),
+        api.categories.getAll(),
       ]);
 
       if (prodRes.status === 'fulfilled' && Array.isArray(prodRes.value) && prodRes.value.length > 0) {
@@ -469,6 +527,9 @@ export function ShopProvider({ children }) {
       }
       if (filRes.status === 'fulfilled' && Array.isArray(filRes.value) && filRes.value.length > 0) {
         setFilaments(filRes.value);
+      }
+      if (catRes.status === 'fulfilled' && Array.isArray(catRes.value) && catRes.value.length > 0) {
+        setCategories(catRes.value);
       }
 
       if (notify) {
@@ -581,6 +642,14 @@ export function ShopProvider({ children }) {
       console.error(e);
     }
   }, [printers]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('fusion3d_categories', JSON.stringify(categories));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [categories]);
 
   // Auth Operations (Live Render PostgreSQL Backend Authentication & Registration)
   const login = async (email, password) => {
@@ -861,7 +930,7 @@ export function ShopProvider({ children }) {
       assignedPrinter: null, // Admin manually manages & assigns printer!
       designProof: {
         image: orderData.items?.[0]?.image || null,
-        modelType: orderData.items?.[0]?.category === 'cake-toppers' ? 'topper' : 'keychain',
+        modelType: orderData.items?.[0]?.modelType || orderData.items?.[0]?.category || 'custom',
         approved: false,
         notes: 'Order received. Designer is extruding custom 3D geometry.'
       },
@@ -1324,6 +1393,121 @@ export function ShopProvider({ children }) {
     api.filaments.delete(id).catch(err => console.log('Filament delete sync:', err.message));
   };
 
+  // Category Management Operations (Admin & Dynamic Catalog)
+  const createCategory = async (categoryData) => {
+    try {
+      const cleanSlug = (categoryData.slug || categoryData.name || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      const newCat = {
+        id: `cat-${Date.now()}`,
+        slug: cleanSlug,
+        name: (categoryData.name || 'New Category').trim(),
+        description: categoryData.description || '',
+        imageUrl: categoryData.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+        badge: categoryData.badge || 'New',
+        displayOrder: Number(categoryData.displayOrder) || (categories.length + 1),
+        isActive: true,
+        count: 0
+      };
+
+      setCategories(prev => [...prev, newCat]);
+      addToast(`Category "${newCat.name}" created successfully!`, 'success');
+
+      api.categories.create(newCat)
+        .then(res => {
+          if (res?.id) {
+            setCategories(prev => prev.map(c => c.id === newCat.id ? res : c));
+          }
+        })
+        .catch(err => console.log('Category create sync:', err.message));
+
+      return newCat;
+    } catch (err) {
+      console.error('Error creating category:', err);
+      addToast('Failed to create category', 'error');
+      throw err;
+    }
+  };
+
+  const updateCategory = async (id, updates) => {
+    try {
+      setCategories(prev => prev.map(c => (c.id === id || c.slug === id) ? { ...c, ...updates } : c));
+      addToast('Category updated.', 'success');
+
+      api.categories.update(id, updates).catch(err => console.log('Category update sync:', err.message));
+    } catch (err) {
+      console.error('Error updating category:', err);
+      addToast('Failed to update category', 'error');
+    }
+  };
+
+  const deleteCategory = async (id) => {
+    try {
+      setCategories(prev => prev.filter(c => c.id !== id && c.slug !== id));
+      addToast('Category deleted from catalog.', 'info');
+
+      api.categories.delete(id).catch(err => console.log('Category delete sync:', err.message));
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      addToast('Failed to delete category', 'error');
+    }
+  };
+
+  // Enterprise Order Management Operations
+  const updateEnterpriseOrder = async (orderId, enterpriseData) => {
+    try {
+      setOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+          const updated = { ...o, ...enterpriseData };
+          if (enterpriseData.internalNote) {
+            const noteObj = {
+              id: `note-${Date.now()}`,
+              text: enterpriseData.internalNote,
+              createdAt: new Date().toISOString(),
+              author: 'Administrator'
+            };
+            updated.internalNotes = [...(o.internalNotes || []), noteObj];
+          }
+          return updated;
+        }
+        return o;
+      }));
+
+      addToast('Enterprise order details updated successfully!', 'success');
+      const res = await api.orders.updateEnterprise(orderId, enterpriseData);
+      if (res && res.id) {
+        setOrders(prev => prev.map(o => o.id === orderId ? res : o));
+      }
+      return res;
+    } catch (err) {
+      console.error('Enterprise order update error:', err);
+      addToast('Failed to update enterprise order details.', 'error');
+    }
+  };
+
+  const addOrderAdminNote = async (orderId, noteText) => {
+    try {
+      const res = await api.orders.addNote(orderId, noteText);
+      setOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            internalNotes: [...(o.internalNotes || []), res]
+          };
+        }
+        return o;
+      }));
+      addToast('Admin note added to order dossier.', 'success');
+      return res;
+    } catch (err) {
+      console.error('Add note error:', err);
+      addToast('Failed to add internal note', 'error');
+    }
+  };
+
   // S3 Cloud CAD/Asset Uploader
   const uploadStorageFile = async (file, folder = 'models') => {
     return api.storage.upload(file, folder);
@@ -1353,11 +1537,15 @@ export function ShopProvider({ children }) {
         isLoginModalOpen,
         setIsLoginModalOpen,
 
-        // Catalog
+        // Catalog & Categories
         products,
         addProduct,
         updateProduct,
         deleteProduct,
+        categories,
+        createCategory,
+        updateCategory,
+        deleteCategory,
 
         // Cart
         cart,
@@ -1380,6 +1568,8 @@ export function ShopProvider({ children }) {
         placeOrder,
         updateOrderStatus,
         adminUpdateOrderStatus,
+        updateEnterpriseOrder,
+        addOrderAdminNote,
         cancelOrder,
         deleteOrder,
         customerApproveDesign,
